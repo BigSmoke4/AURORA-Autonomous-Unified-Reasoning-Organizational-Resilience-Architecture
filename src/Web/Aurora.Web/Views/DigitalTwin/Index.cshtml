@@ -1,0 +1,65 @@
+@model Aurora.Web.Models.DigitalTwin.DigitalTwinViewModel
+@{ ViewData["Title"] = "Digital Twin"; }
+
+<section class="aurora-panel">
+    <h1>Digital Twin</h1>
+
+    <h2>Suppliers</h2>
+    <table class="aurora-table">
+        <thead><tr><th>Name</th><th>Category</th><th>Capacity Utilization</th><th>Criticality</th><th>Revenue Exposure</th><th>Status</th></tr></thead>
+        <tbody>
+        @foreach (var s in Model.Suppliers)
+        {
+            <tr>
+                <td>@s.Name</td><td>@s.Category</td><td>@s.CapacityUtilizationPct.ToString("0")%</td>
+                <td>@s.Criticality/5</td><td>@s.AnnualRevenueExposure.ToString("C0")</td>
+                <td><span class="aurora-status-pill aurora-status-pill--@s.Status.ToString().ToLower()">@s.Status</span></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+
+    <h2>Factories</h2>
+    <table class="aurora-table">
+        <thead><tr><th>Name</th><th>Location</th><th>Capacity Utilization</th><th>Criticality</th><th>Revenue Exposure</th></tr></thead>
+        <tbody>
+        @foreach (var f in Model.Factories)
+        {
+            <tr><td>@f.Name</td><td>@f.Location</td><td>@f.CapacityUtilizationPct.ToString("0")%</td><td>@f.Criticality/5</td><td>@f.AnnualRevenueExposure.ToString("C0")</td></tr>
+        }
+        </tbody>
+    </table>
+
+    <h2>Products</h2>
+    <table class="aurora-table">
+        <thead><tr><th>Name</th><th>SKU</th><th>Revenue Exposure</th></tr></thead>
+        <tbody>
+        @foreach (var p in Model.Products)
+        {
+            <tr><td>@p.Name</td><td>@p.Sku</td><td>@p.AnnualRevenueExposure.ToString("C0")</td></tr>
+        }
+        </tbody>
+    </table>
+
+    <h2>Customers</h2>
+    <table class="aurora-table">
+        <thead><tr><th>Name</th><th>Segment</th><th>Revenue Exposure</th></tr></thead>
+        <tbody>
+        @foreach (var c in Model.Customers)
+        {
+            <tr><td>@c.Name</td><td>@c.Segment</td><td>@c.AnnualRevenueExposure.ToString("C0")</td></tr>
+        }
+        </tbody>
+    </table>
+
+    <h2>Technology Assets</h2>
+    <table class="aurora-table">
+        <thead><tr><th>Name</th><th>Type</th><th>Criticality</th></tr></thead>
+        <tbody>
+        @foreach (var t in Model.TechnologyAssets)
+        {
+            <tr><td>@t.Name</td><td>@t.AssetType</td><td>@t.Criticality/5</td></tr>
+        }
+        </tbody>
+    </table>
+</section>

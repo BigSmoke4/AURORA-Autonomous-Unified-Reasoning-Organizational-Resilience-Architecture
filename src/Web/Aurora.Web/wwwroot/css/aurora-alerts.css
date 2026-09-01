@@ -1,0 +1,11 @@
+.aurora-alert {
+  display: flex; align-items: center; gap: var(--aurora-space-2);
+  padding: var(--aurora-space-3) var(--aurora-space-4);
+  border-radius: var(--aurora-radius-md);
+  border: 1px solid var(--aurora-border);
+  background: var(--aurora-bg-recessed);
+  margin-bottom: var(--aurora-space-3);
+  font-size: 13px;
+}
+.aurora-alert--critical { border-color: var(--aurora-status-critical); color: var(--aurora-status-critical); }
+.aurora-alert--warning { border-color: var(--aurora-status-warning); color: var(--aurora-status-warning); }

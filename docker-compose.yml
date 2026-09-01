@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aurora-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aurora
+      POSTGRES_USER: aurora
+      POSTGRES_PASSWORD: aurora_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - aurora-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aurora -d aurora"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  aurora-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aurora-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__AuroraDb: "Host=postgres;Port=5432;Database=aurora;Username=aurora;Password=aurora_dev_password"
+    ports:
+      - "8080:8080"
+
+volumes:
+  aurora-postgres-data:

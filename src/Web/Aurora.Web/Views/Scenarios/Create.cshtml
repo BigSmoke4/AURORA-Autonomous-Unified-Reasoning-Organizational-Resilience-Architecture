@@ -1,0 +1,56 @@
+@model Aurora.Web.Models.Scenarios.CreateScenarioViewModel
+@{ ViewData["Title"] = "New Scenario"; }
+
+<section class="aurora-panel aurora-panel--narrow">
+    <h1>New Scenario</h1>
+    <p class="aurora-note">Or describe it in plain English using the AI Command Panel on the Command Center &mdash; AURORA will draft the fields below for you to confirm (spec section 16). Nothing is invented: any field it can't recognize is left for you to fill in.</p>
+
+    <form asp-controller="Scenarios" asp-action="Create" method="post" class="aurora-form">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="aurora-form__errors"></div>
+
+        <label class="aurora-form__label">
+            Scenario Name
+            <input asp-for="Name" class="aurora-form__input" />
+        </label>
+
+        <label class="aurora-form__label">
+            Target
+            <select asp-for="TargetNodeId" class="aurora-form__input">
+                <option value="">-- select an entity --</option>
+                @foreach (var node in Model.AvailableNodes)
+                {
+                    <option value="@node.Id">@node.Name</option>
+                }
+            </select>
+        </label>
+
+        <label class="aurora-form__label">
+            Event Type
+            <select asp-for="EventType" class="aurora-form__input">
+                <option value="0">Capacity Reduction</option>
+                <option value="1">Full Shutdown</option>
+                <option value="2">Demand Increase</option>
+                <option value="3">Demand Decrease</option>
+                <option value="4">Cost Increase</option>
+            </select>
+        </label>
+
+        <label class="aurora-form__label">
+            Severity (%)
+            <input asp-for="SeverityPercent" type="number" min="0" max="100" class="aurora-form__input" />
+        </label>
+
+        <label class="aurora-form__label">
+            Duration (days)
+            <input asp-for="DurationDays" type="number" min="1" max="365" class="aurora-form__input" />
+        </label>
+
+        <label class="aurora-form__label">
+            Assumptions (optional)
+            <textarea asp-for="Assumptions" class="aurora-form__input aurora-form__input--textarea"></textarea>
+        </label>
+
+        <button type="submit" class="aurora-btn aurora-btn--primary">Create &amp; Continue</button>
+    </form>
+</section>

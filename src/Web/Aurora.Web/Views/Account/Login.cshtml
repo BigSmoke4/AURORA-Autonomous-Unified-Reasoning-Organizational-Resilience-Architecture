@@ -1,0 +1,30 @@
+@model Aurora.Web.Models.Account.LoginViewModel
+@{ ViewData["Title"] = "Sign In"; Layout = "_Layout"; }
+
+<div class="aurora-panel aurora-panel--centered">
+    <h1 class="aurora-panel__title">Sign in to AURORA</h1>
+    <form asp-controller="Account" asp-action="Login" method="post" class="aurora-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="ReturnUrl" />
+        <div asp-validation-summary="All" class="aurora-form__errors"></div>
+
+        <label class="aurora-form__label">
+            Email
+            <input asp-for="Email" class="aurora-form__input" autocomplete="username" />
+        </label>
+        <label class="aurora-form__label">
+            Password
+            <input asp-for="Password" class="aurora-form__input" autocomplete="current-password" />
+        </label>
+        <label class="aurora-form__checkbox">
+            <input asp-for="RememberMe" /> Remember me
+        </label>
+
+        <button type="submit" class="aurora-btn aurora-btn--primary">Sign in</button>
+    </form>
+
+    <p class="aurora-note">
+        Demo credentials: <code>admin@aurora.local</code> / <code>Aurora!Demo2026</code>
+        &mdash; change this immediately outside a local sandbox.
+    </p>
+</div>

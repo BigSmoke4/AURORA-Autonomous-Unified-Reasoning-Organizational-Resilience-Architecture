@@ -1,0 +1,49 @@
+@model Aurora.Web.Models.CommandCenter.CommandCenterViewModel
+@{ ViewData["Title"] = "Command Center"; }
+
+<section class="aurora-command-center">
+    <div class="aurora-command-center__graph-panel">
+        <div class="aurora-panel-header">
+            <h1>Neural Digital Twin &mdash; @Model.OrganizationName</h1>
+            <div class="aurora-graph-controls">
+                <input id="graph-search" class="aurora-form__input aurora-form__input--compact" placeholder="Search entities..." />
+                <button id="graph-reset" class="aurora-btn aurora-btn--ghost">Reset view</button>
+            </div>
+        </div>
+        <div id="neural-graph-container" class="aurora-neural-graph" data-organization-id="@ViewBag.OrganizationId"></div>
+        <p class="aurora-graph-hint">Click a node to focus the network around it and inspect its dependencies. Node size reflects criticality; connection thickness reflects dependency strength.</p>
+    </div>
+
+    <aside class="aurora-command-center__side-panel">
+        <div class="aurora-ai-panel">
+            <h2>AI Command Panel</h2>
+            <p class="aurora-note">Ask AURORA a question about the organization. Investigations run real graph and risk calculations &mdash; results are evidence-backed, not generated text.</p>
+            <textarea id="ai-question" class="aurora-form__input aurora-form__input--textarea" placeholder="e.g. What happens if Northbridge Components fails?"></textarea>
+            <button id="ai-investigate-btn" class="aurora-btn aurora-btn--primary">Investigate</button>
+            <div id="ai-result" class="aurora-ai-result" hidden>
+                <div class="aurora-ai-result__confidence"></div>
+                <p class="aurora-ai-result__narrative"></p>
+                <div class="aurora-ai-result__evidence"></div>
+            </div>
+        </div>
+    </aside>
+</section>
+
+<section class="aurora-metrics-strip">
+    <div class="aurora-metric"><span class="aurora-metric__label">Graph Nodes</span><span class="aurora-metric__value">@Model.NodeCount</span></div>
+    <div class="aurora-metric"><span class="aurora-metric__label">Graph Edges</span><span class="aurora-metric__value">@Model.EdgeCount</span></div>
+    <div class="aurora-metric"><span class="aurora-metric__label">Revenue Exposure</span><span class="aurora-metric__value">@Model.TotalRevenueExposure.ToString("C0")</span></div>
+    <div class="aurora-metric aurora-metric--warning"><span class="aurora-metric__label">Warning Nodes</span><span class="aurora-metric__value">@Model.WarningNodeCount</span></div>
+    <div class="aurora-metric aurora-metric--critical"><span class="aurora-metric__label">Critical Nodes</span><span class="aurora-metric__value">@Model.CriticalNodeCount</span></div>
+    <div class="aurora-metric aurora-metric--critical"><span class="aurora-metric__label">Single Points of Failure</span><span class="aurora-metric__value">@Model.SinglePointsOfFailureCount</span></div>
+    <div class="aurora-metric"><span class="aurora-metric__label">Suppliers</span><span class="aurora-metric__value">@Model.SupplierCount</span></div>
+    <div class="aurora-metric"><span class="aurora-metric__label">Factories</span><span class="aurora-metric__value">@Model.FactoryCount</span></div>
+    <div class="aurora-metric"><span class="aurora-metric__label">Products</span><span class="aurora-metric__value">@Model.ProductCount</span></div>
+    <div class="aurora-metric"><span class="aurora-metric__label">Customers</span><span class="aurora-metric__value">@Model.CustomerCount</span></div>
+</section>
+
+@section Scripts {
+    <script src="~/js/aurora.graph.js" asp-append-version="true"></script>
+    <script src="~/js/aurora.command-center.js" asp-append-version="true"></script>
+    <script src="~/js/aurora.ai.js" asp-append-version="true"></script>
+}

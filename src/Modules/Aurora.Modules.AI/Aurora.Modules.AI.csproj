@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Aurora.Modules.AI</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.8" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\Aurora.Shared\Aurora.Shared.csproj" />
+    <ProjectReference Include="..\Aurora.Modules.Graph\Aurora.Modules.Graph.csproj" />
+    <ProjectReference Include="..\Aurora.Modules.Risk\Aurora.Modules.Risk.csproj" />
+  </ItemGroup>
+</Project>

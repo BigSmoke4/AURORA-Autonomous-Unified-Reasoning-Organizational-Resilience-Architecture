@@ -1,0 +1,9 @@
+@media (max-width: 1024px) {
+  .aurora-command-center { grid-template-columns: 1fr; }
+  .aurora-definition-list { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .aurora-topbar { flex-wrap: wrap; gap: var(--aurora-space-2); }
+  .aurora-topbar__nav { order: 3; width: 100%; justify-content: space-between; }
+  .aurora-main { padding: var(--aurora-space-3); }
+}

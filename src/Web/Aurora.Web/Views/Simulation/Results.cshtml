@@ -1,0 +1,58 @@
+@model Aurora.Web.Models.Simulation.SimulationResultsViewModel
+@{ ViewData["Title"] = "Simulation Results"; }
+
+<section class="aurora-panel">
+    <h1>Simulation Results &mdash; @Model.Scenario.Name</h1>
+
+    @if (Model.Result is not null)
+    {
+        <div class="aurora-impact-summary">
+            <div class="aurora-impact-summary__item">
+                <span class="aurora-impact-summary__label">Total Revenue Impact</span>
+                <span class="aurora-impact-summary__value">@Model.Result.TotalRevenueImpact.ToString("C0")</span>
+            </div>
+            <div class="aurora-impact-summary__item">
+                <span class="aurora-impact-summary__label">Peak Daily Impact</span>
+                <span class="aurora-impact-summary__value">@Model.Result.PeakDailyImpactScore.ToString("P0")</span>
+            </div>
+            <div class="aurora-impact-summary__item">
+                <span class="aurora-impact-summary__label">Affected Nodes</span>
+                <span class="aurora-impact-summary__value">@Model.Result.AffectedNodeCount</span>
+            </div>
+            <div class="aurora-impact-summary__item">
+                <span class="aurora-impact-summary__label">Recovery Time</span>
+                <span class="aurora-impact-summary__value">@Model.Result.RecoveryTimeDays days</span>
+            </div>
+        </div>
+        <p class="aurora-note">@Model.Result.Summary</p>
+    }
+    else
+    {
+        <p class="aurora-note">This run has not completed yet.</p>
+    }
+
+    <h2>Impact Over Time</h2>
+    <div id="impact-chart" class="aurora-simulation-chart"
+         data-series="@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DailySeries.Select(d => new { day = d.Day, impact = d.TotalImpactScore, revenue = d.RevenueImpact })))"></div>
+
+    <h2>Most Affected Entities</h2>
+    <table class="aurora-table">
+        <thead><tr><th>Entity</th><th>Peak Impact</th><th>Total Revenue Impact</th></tr></thead>
+        <tbody>
+        @foreach (var node in Model.TopAffectedNodes)
+        {
+            <tr>
+                <td>@node.NodeName</td>
+                <td>@node.PeakImpact.ToString("P0")</td>
+                <td>@node.TotalRevenueImpact.ToString("C0")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+
+    <a asp-controller="Scenarios" asp-action="Index" class="aurora-btn aurora-btn--ghost">&larr; Back to Scenario Lab</a>
+</section>
+
+@section Scripts {
+    <script src="~/js/aurora.simulation.js" asp-append-version="true"></script>
+}

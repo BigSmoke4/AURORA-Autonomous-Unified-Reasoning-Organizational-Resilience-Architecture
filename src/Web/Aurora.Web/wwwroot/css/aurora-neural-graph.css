@@ -1,0 +1,22 @@
+.aurora-neural-graph {
+  width: 100%;
+  height: 560px;
+  background:
+    radial-gradient(circle at 50% 50%, #0e141b 0%, var(--aurora-bg-recessed) 70%);
+  border: 1px solid var(--aurora-border);
+  border-radius: var(--aurora-radius-md);
+  box-shadow: var(--aurora-shadow-recessed);
+  position: relative;
+  overflow: hidden;
+}
+.aurora-neural-graph svg { width: 100%; height: 100%; }
+.aurora-graph-edge { stroke: var(--aurora-border-strong); fill: none; }
+.aurora-graph-edge--highlight { stroke: var(--aurora-accent-strong); }
+.aurora-graph-node circle { stroke-width: 1.5; cursor: pointer; transition: r 0.15s ease; }
+.aurora-graph-node text { fill: var(--aurora-text-secondary); font-size: 10px; pointer-events: none; }
+.aurora-graph-node--healthy circle { fill: #12303f; stroke: var(--aurora-status-healthy); }
+.aurora-graph-node--warning circle { fill: #3a3115; stroke: var(--aurora-status-warning); }
+.aurora-graph-node--critical circle { fill: #3a1715; stroke: var(--aurora-status-critical); }
+.aurora-graph-node--unknown circle { fill: #1c232c; stroke: var(--aurora-status-unknown); }
+.aurora-graph-node:hover circle { filter: brightness(1.3); }
+.aurora-graph-node--focused circle { stroke-width: 3; }

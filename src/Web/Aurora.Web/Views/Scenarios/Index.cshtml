@@ -1,0 +1,35 @@
+@model Aurora.Web.Models.Scenarios.ScenarioListViewModel
+@{ ViewData["Title"] = "Scenario Lab"; }
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header">
+        <h1>Scenario Lab</h1>
+        <a asp-controller="Scenarios" asp-action="Create" class="aurora-btn aurora-btn--primary">+ New Scenario</a>
+    </div>
+
+    <table class="aurora-table">
+        <thead>
+            <tr>
+                <th>Name</th><th>Target</th><th>Event</th><th>Severity</th><th>Duration</th><th>Status</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var s in Model.Scenarios)
+        {
+            <tr>
+                <td>@s.Name</td>
+                <td>@(Model.NodeNames.TryGetValue(s.TargetNodeId, out var n) ? n : "(unknown)")</td>
+                <td>@s.EventType</td>
+                <td>@s.Severity.ToString("P0")</td>
+                <td>@s.DurationDays days</td>
+                <td><span class="aurora-status-pill aurora-status-pill--@s.Status.ToString().ToLower()">@s.Status</span></td>
+                <td><a asp-controller="Simulation" asp-action="Details" asp-route-scenarioId="@s.Id">Open &rarr;</a></td>
+            </tr>
+        }
+        @if (!Model.Scenarios.Any())
+        {
+            <tr><td colspan="7" class="aurora-table__empty">No scenarios yet. Create one to run the simulation engine.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>

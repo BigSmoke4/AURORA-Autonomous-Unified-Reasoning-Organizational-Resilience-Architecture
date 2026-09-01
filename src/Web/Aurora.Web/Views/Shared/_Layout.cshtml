@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] &mdash; AURORA</title>
+    <link rel="stylesheet" href="~/css/aurora.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="aurora-shell">
+        <header class="aurora-topbar">
+            <div class="aurora-topbar__brand">
+                <span class="aurora-topbar__logo">AURORA</span>
+                <span class="aurora-topbar__tagline">Autonomous Unified Reasoning &amp; Organizational Resilience Architecture</span>
+            </div>
+            <nav class="aurora-topbar__nav">
+                <a asp-controller="CommandCenter" asp-action="Index">Command Center</a>
+                <a asp-controller="DigitalTwin" asp-action="Index">Digital Twin</a>
+                <a asp-controller="Scenarios" asp-action="Index">Scenario Lab</a>
+            </nav>
+            <div class="aurora-topbar__user">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <span class="aurora-topbar__username">@User.Identity!.Name</span>
+                    <form asp-controller="Account" asp-action="Logout" method="post" class="aurora-inline-form">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="aurora-btn aurora-btn--ghost">Sign out</button>
+                    </form>
+                }
+                else
+                {
+                    <a asp-controller="Account" asp-action="Login" class="aurora-btn aurora-btn--ghost">Sign in</a>
+                }
+            </div>
+        </header>
+
+        <main class="aurora-main">
+            @RenderBody()
+        </main>
+
+        <footer class="aurora-footer">
+            <span>AURORA &mdash; Enterprise Digital Twin &amp; Decision Intelligence Platform</span>
+        </footer>
+    </div>
+
+    <script src="~/js/aurora.core.js" asp-append-version="true"></script>
+    <script src="~/js/aurora.api.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,12 @@
+/* Central stylesheet entry point (spec section 50). Every view links only this file. */
+@import url('aurora-tokens.css');
+@import url('aurora-layout.css');
+@import url('aurora-components.css');
+@import url('aurora-forms.css');
+@import url('aurora-tables.css');
+@import url('aurora-alerts.css');
+@import url('aurora-command-center.css');
+@import url('aurora-neural-graph.css');
+@import url('aurora-ai.css');
+@import url('aurora-simulation.css');
+@import url('aurora-responsive.css');

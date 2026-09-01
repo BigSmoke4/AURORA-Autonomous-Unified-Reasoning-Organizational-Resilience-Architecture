@@ -1,0 +1,6 @@
+.aurora-simulation-chart { width: 100%; height: 260px; background: var(--aurora-bg-recessed); border: 1px solid var(--aurora-border); border-radius: var(--aurora-radius-md); margin: var(--aurora-space-3) 0 var(--aurora-space-6); }
+.aurora-simulation-chart svg { width: 100%; height: 100%; }
+.aurora-simulation-chart .impact-line { fill: none; stroke: var(--aurora-status-critical); stroke-width: 2; }
+.aurora-simulation-chart .revenue-line { fill: none; stroke: var(--aurora-accent-strong); stroke-width: 2; stroke-dasharray: 4 3; }
+.aurora-simulation-chart .axis { stroke: var(--aurora-border-strong); }
+.aurora-simulation-chart .axis-label { fill: var(--aurora-text-muted); font-size: 10px; }

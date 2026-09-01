@@ -1,0 +1,50 @@
+@model Aurora.Web.Models.Simulation.ScenarioDetailsViewModel
+@{ ViewData["Title"] = Model.Scenario.Name; }
+
+<section class="aurora-panel">
+    <h1>@Model.Scenario.Name</h1>
+    <dl class="aurora-definition-list">
+        <dt>Target</dt><dd>@Model.TargetNodeName</dd>
+        <dt>Event</dt><dd>@Model.Scenario.EventType</dd>
+        <dt>Severity</dt><dd>@Model.Scenario.Severity.ToString("P0")</dd>
+        <dt>Duration</dt><dd>@Model.Scenario.DurationDays days</dd>
+        <dt>Status</dt><dd><span class="aurora-status-pill aurora-status-pill--@Model.Scenario.Status.ToString().ToLower()">@Model.Scenario.Status</span></dd>
+        @if (!string.IsNullOrWhiteSpace(Model.Scenario.Assumptions))
+        {
+            <dt>Assumptions</dt><dd>@Model.Scenario.Assumptions</dd>
+        }
+    </dl>
+
+    <form asp-controller="Simulation" asp-action="Run" asp-route-scenarioId="@Model.Scenario.Id" method="post" id="run-simulation-form">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="aurora-btn aurora-btn--primary aurora-btn--large">Run Simulation</button>
+    </form>
+    <div id="simulation-progress" class="aurora-progress" hidden>
+        <div class="aurora-progress__bar"></div>
+        <span class="aurora-progress__message">Starting...</span>
+    </div>
+
+    @if (Model.PastRuns.Any())
+    {
+        <h2>Past Runs</h2>
+        <table class="aurora-table">
+            <thead><tr><th>Started</th><th>Status</th><th>Model Version</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var run in Model.PastRuns)
+            {
+                <tr>
+                    <td>@run.StartedAtUtc?.ToString("g")</td>
+                    <td>@run.Status</td>
+                    <td>@run.ModelVersion</td>
+                    <td><a asp-controller="Simulation" asp-action="Results" asp-route-simulationRunId="@run.Id">View results &rarr;</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>
+
+@section Scripts {
+    <script src="~/js/aurora.signalr.js" asp-append-version="true"></script>
+    <script src="~/js/aurora.simulation.js" asp-append-version="true"></script>
+}

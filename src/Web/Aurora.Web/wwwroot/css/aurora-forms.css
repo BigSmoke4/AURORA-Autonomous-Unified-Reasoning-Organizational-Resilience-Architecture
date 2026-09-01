@@ -1,0 +1,18 @@
+.aurora-form { display: flex; flex-direction: column; gap: var(--aurora-space-4); text-align: left; }
+.aurora-form__label { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--aurora-text-secondary); font-weight: 600; }
+.aurora-form__input {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 10px 12px;
+  background: var(--aurora-bg-recessed);
+  border: 1px solid var(--aurora-border-strong);
+  border-radius: var(--aurora-radius-sm);
+  color: var(--aurora-text-primary);
+  box-shadow: var(--aurora-shadow-recessed);
+}
+.aurora-form__input:focus { outline: 2px solid var(--aurora-accent); outline-offset: 1px; }
+.aurora-form__input--compact { padding: 6px 10px; font-size: 12px; }
+.aurora-form__input--textarea { min-height: 80px; resize: vertical; }
+.aurora-form__checkbox { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--aurora-text-secondary); }
+.aurora-form__errors { color: var(--aurora-status-critical); font-size: 12.5px; }
+.aurora-form__errors ul { margin: 0; padding-left: 18px; }

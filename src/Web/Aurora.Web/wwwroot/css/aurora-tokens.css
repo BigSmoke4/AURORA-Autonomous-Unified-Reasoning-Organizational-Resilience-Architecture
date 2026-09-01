@@ -1,0 +1,41 @@
+/* Design tokens — the single source of truth for AURORA's visual identity (spec section 50).
+   "Futuristic enterprise skeuomorphism": NASA mission control + Bloomberg terminal + industrial
+   control room, rendered with restraint — no neon, no glassmorphism, no gratuitous gradients. */
+:root {
+  --aurora-bg-deep: #0b0f14;
+  --aurora-bg-panel: #12181f;
+  --aurora-bg-panel-raised: #161e27;
+  --aurora-bg-recessed: #0d1218;
+  --aurora-border: #232d38;
+  --aurora-border-strong: #2f3c4a;
+
+  --aurora-text-primary: #e6edf3;
+  --aurora-text-secondary: #93a2b3;
+  --aurora-text-muted: #5c6b7a;
+
+  --aurora-accent: #2fb6c9;
+  --aurora-accent-strong: #4fd1e3;
+  --aurora-accent-dim: #1d4b53;
+
+  --aurora-status-healthy: #3ecf8e;
+  --aurora-status-warning: #e8b339;
+  --aurora-status-critical: #e0554f;
+  --aurora-status-unknown: #5c6b7a;
+
+  --aurora-shadow-panel: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
+  --aurora-shadow-recessed: inset 0 2px 6px rgba(0,0,0,0.5);
+
+  --aurora-radius-sm: 4px;
+  --aurora-radius-md: 8px;
+  --aurora-radius-lg: 14px;
+
+  --aurora-font-ui: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --aurora-font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+
+  --aurora-space-1: 4px;
+  --aurora-space-2: 8px;
+  --aurora-space-3: 12px;
+  --aurora-space-4: 16px;
+  --aurora-space-6: 24px;
+  --aurora-space-8: 32px;
+}
