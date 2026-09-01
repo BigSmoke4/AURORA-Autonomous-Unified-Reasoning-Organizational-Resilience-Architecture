@@ -172,4 +172,6 @@ Concrete next slices, in the order they'd unlock the most additional spec covera
 
 ## License
 
-Provided as-is for evaluation and further development.
+AURORA is open-source software licensed under the MIT License.
+
+Copyright © 2026 Ahanaf Mokammel.
