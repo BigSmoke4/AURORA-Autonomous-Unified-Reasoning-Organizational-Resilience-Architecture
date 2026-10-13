@@ -116,7 +116,7 @@ public sealed class MigrationIntegrationTests
                 $"Set {ConnectionVariable} to a disposable PostgreSQL database whose name contains 'test'.");
         }
 
-        var database = new NpgsqlConnectionStringBuilder(connectionString).Database;
+        var database = new NpgsqlConnectionStringBuilder(connectionString).Database ?? string.Empty;
         if (!database.Contains("test", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
