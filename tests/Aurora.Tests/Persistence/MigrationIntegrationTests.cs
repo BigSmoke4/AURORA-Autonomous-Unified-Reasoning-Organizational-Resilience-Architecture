@@ -3,9 +3,12 @@ using Aurora.Modules.Audit.Application;
 using Aurora.Modules.Audit.Domain;
 using Aurora.Modules.Decisions.Application;
 using Aurora.Modules.Decisions.Domain;
+using Aurora.Modules.Graph.Domain;
 using Aurora.Modules.Organizations.Domain;
+using Aurora.Modules.Reporting.Domain;
 using Aurora.Shared.Kernel;
 using Aurora.Web.Data;
+using Aurora.Web.Data.Jobs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -27,6 +30,7 @@ public sealed class MigrationIntegrationTests
     private const string PreviousMigrationId = "20260901062452_InitialCreate";
     private const string Phase3MigrationId = "20261013140000_Phase3OperationalModules";
     private const string Phase4MigrationId = "20261013160000_Phase4DomainEvents";
+    private const string ReportHashA = "12b3b4f77501b884b53acbbe17b0d2d878241a2b0404569105423de1fd319771";
 
     [Fact]
     public async Task Phase2Migration_AppliesAndRevertsCleanly()
@@ -118,6 +122,11 @@ public sealed class MigrationIntegrationTests
                 "target-edge-attenuation-v1", "{}", "{}", userId));
             setup.AuditEntries.Add(new AuditEntry(orgA.Id, userId, "analyst", AuditActions.DecisionProposed,
                 "Decision", decision.Id.ToString(), AuditOutcome.Success, null, null));
+            setup.ExecutiveReportRuns.Add(new ExecutiveReportRun(orgA.Id, new DateTime(2026, 10, 13, 0, 0, 0, DateTimeKind.Utc),
+                userId, "Analyst A", 3, ReportHashA));
+            setup.GraphSnapshotRecords.Add(new GraphSnapshotRecord(orgA.Id, new DateTime(2026, 10, 13, 0, 0, 0, DateTimeKind.Utc),
+                2, 1, "{}"));
+            setup.BackgroundJobs.Add(new BackgroundJob(orgA.Id, "metric-feed", "{}", new DateTime(2026, 10, 13, 0, 0, 0, DateTimeKind.Utc)));
             // A platform-level sign-in event has no organization and must stay invisible to every tenant.
             setup.AuditEntries.Add(new AuditEntry(null, null, "unknown@example.com", AuditActions.SignInFailed,
                 "User", null, AuditOutcome.Failure, null, null));
@@ -132,6 +141,9 @@ public sealed class MigrationIntegrationTests
             Assert.Equal(DecisionSourceKind.Counterfactual, decision.SourceKind);
             Assert.Equal(1, await tenantA.AuditEntries.CountAsync());
             Assert.Equal(1, await tenantA.AnalysisRecords.CountAsync());
+            Assert.Equal(1, await tenantA.ExecutiveReportRuns.CountAsync());
+            Assert.Equal(1, await tenantA.GraphSnapshotRecords.CountAsync());
+            Assert.Equal(1, await tenantA.BackgroundJobs.CountAsync());
         }
 
         await using (var tenantB = new AuroraDbContext(options, new FixedTenant(Guid.NewGuid())))
@@ -139,6 +151,9 @@ public sealed class MigrationIntegrationTests
             Assert.Equal(0, await tenantB.Decisions.CountAsync());
             Assert.Equal(0, await tenantB.AuditEntries.CountAsync());
             Assert.Equal(0, await tenantB.AnalysisRecords.CountAsync());
+            Assert.Equal(0, await tenantB.ExecutiveReportRuns.CountAsync());
+            Assert.Equal(0, await tenantB.GraphSnapshotRecords.CountAsync());
+            Assert.Equal(0, await tenantB.BackgroundJobs.CountAsync());
         }
 
         await using (var anonymous = new AuroraDbContext(options, new FixedTenant(null)))
@@ -148,6 +163,12 @@ public sealed class MigrationIntegrationTests
             // The unfiltered count proves that rows exist, so the zero counts above are meaningful.
             Assert.Equal(1, await anonymous.Decisions.IgnoreQueryFilters().CountAsync());
             Assert.Equal(2, await anonymous.AuditEntries.IgnoreQueryFilters().CountAsync());
+            Assert.Equal(0, await anonymous.ExecutiveReportRuns.CountAsync());
+            Assert.Equal(0, await anonymous.GraphSnapshotRecords.CountAsync());
+            Assert.Equal(0, await anonymous.BackgroundJobs.CountAsync());
+            Assert.Equal(1, await anonymous.ExecutiveReportRuns.IgnoreQueryFilters().CountAsync());
+            Assert.Equal(1, await anonymous.GraphSnapshotRecords.IgnoreQueryFilters().CountAsync());
+            Assert.Equal(1, await anonymous.BackgroundJobs.IgnoreQueryFilters().CountAsync());
         }
     }
 

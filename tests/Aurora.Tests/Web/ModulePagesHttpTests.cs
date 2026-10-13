@@ -25,11 +25,13 @@ namespace Aurora.Tests.Web;
 public sealed class ModulePagesHttpTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
     private const string Password = "Aurora-Test-Password-1!";
+    private const string AccessDeniedSegment = "/Account/AccessDenied";
     private const string DemoOrganizationName = "Meridian Industrial Group";
     private const string IsolatedOrganizationName = "Module HTTP Isolated Org";
     private const string AdministratorEmail = "module-admin@example.com";
     private const string IsolatedEmail = "module-isolated@example.com";
     private const string DeactivatedEmail = "module-deactivated@example.com";
+    private const string ViewerEmail = "module-viewer@example.com";
     private const string LoginPath = "/Account/Login";
     private const string WorkforcePath = "/Workforce";
     private const string AntiforgeryField = "__RequestVerificationToken";
@@ -104,9 +106,10 @@ public sealed class ModulePagesHttpTests : IClassFixture<WebApplicationFactory<P
         db.Organizations.Add(isolated);
         await db.SaveChangesAsync();
 
-        await CreateUserAsync(userManager, AdministratorEmail, demo.Id, isActive: true);
-        await CreateUserAsync(userManager, IsolatedEmail, isolated.Id, isActive: true);
-        await CreateUserAsync(userManager, DeactivatedEmail, demo.Id, isActive: false);
+        await CreateUserAsync(userManager, AdministratorEmail, demo.Id, isActive: true, AuroraRoles.SystemAdministrator);
+        await CreateUserAsync(userManager, IsolatedEmail, isolated.Id, isActive: true, AuroraRoles.SystemAdministrator);
+        await CreateUserAsync(userManager, DeactivatedEmail, demo.Id, isActive: false, AuroraRoles.SystemAdministrator);
+        await CreateUserAsync(userManager, ViewerEmail, demo.Id, isActive: true, AuroraRoles.Viewer);
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -205,6 +208,21 @@ public sealed class ModulePagesHttpTests : IClassFixture<WebApplicationFactory<P
         var csv = (await response.Content.ReadAsStringAsync()).TrimStart(CsvByteOrderMark[0]);
         Assert.StartsWith(CsvHeader, csv, StringComparison.Ordinal);
         Assert.Contains("Plant operations continuity", csv, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Viewer_CanReadReports_ButCannotQueueFeedIngestion()
+    {
+        var jobsBefore = await CountDemoRowsAsync(db => db.BackgroundJobs);
+        using var viewer = await SignInAsync(ViewerEmail);
+
+        var export = await viewer.GetAsync("/Reporting/Export");
+        Assert.Equal(HttpStatusCode.OK, export.StatusCode);
+
+        var queue = await viewer.PostAsync("/Monitoring/QueueFeedIngestion", new FormUrlEncodedContent(Array.Empty<KeyValuePair<string, string>>()));
+        Assert.Equal(HttpStatusCode.Redirect, queue.StatusCode);
+        Assert.Contains(AccessDeniedSegment, queue.Headers.Location?.ToString() ?? string.Empty, StringComparison.Ordinal);
+        Assert.Equal(jobsBefore, await CountDemoRowsAsync(db => db.BackgroundJobs));
     }
 
     [Fact]
@@ -451,7 +469,7 @@ public sealed class ModulePagesHttpTests : IClassFixture<WebApplicationFactory<P
     private static FormUrlEncodedContent Form(IReadOnlyDictionary<string, string> fields) => new(fields);
 
     private static async Task CreateUserAsync(
-        UserManager<ApplicationUser> userManager, string email, Guid organizationId, bool isActive)
+        UserManager<ApplicationUser> userManager, string email, Guid organizationId, bool isActive, string role)
     {
         var user = new ApplicationUser
         {
@@ -466,7 +484,7 @@ public sealed class ModulePagesHttpTests : IClassFixture<WebApplicationFactory<P
         var created = await userManager.CreateAsync(user, Password);
         Assert.True(created.Succeeded, string.Join("; ", created.Errors.Select(e => e.Description)));
 
-        var granted = await userManager.AddToRoleAsync(user, AuroraRoles.SystemAdministrator);
+        var granted = await userManager.AddToRoleAsync(user, role);
         Assert.True(granted.Succeeded, string.Join("; ", granted.Errors.Select(e => e.Description)));
     }
 
