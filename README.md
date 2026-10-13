@@ -206,10 +206,9 @@ The provider never receives tools and never computes numbers.
 
 ## Roadmap
 
-1. Sensor and feed ingestion for Monitoring and Technology, and repository layers for the Phase 3 modules once a second consumer needs them.
-2. Historical graph snapshots, which enable point-in-time counterfactuals.
-3. Retrieval over organizational documents, feeding the same evidence model as the graph tools.
-4. A background job queue for long-running simulations and analyses (ADR 005).
+1. Connect the feed and model adapters to live endpoints, and exercise them. Until then they are verified only with fixtures.
+2. Link patch policies to a vulnerability feed, through the same adapter boundary.
+3. Add a distributed cache only if the load requires one.
 
 ## License
 
