@@ -152,9 +152,6 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
         builder.ApplyConfigurationsFromAssembly(typeof(InventoryPosition).Assembly);
         builder.ApplyConfiguration(new OutboxMessageConfiguration());
         builder.ApplyConfigurationsFromAssembly(typeof(ExecutiveReportRun).Assembly);
-        builder.ApplyConfigurationsFromAssembly(typeof(GraphSnapshotRecord).Assembly);
-        builder.ApplyConfigurationsFromAssembly(typeof(KnowledgeDocument).Assembly);
-        builder.ApplyConfigurationsFromAssembly(typeof(DebateSession).Assembly);
         builder.ApplyConfiguration(new BackgroundJobConfiguration());
 
         // Identity tables get an "Aurora" prefix so they're visually grouped in the schema.
