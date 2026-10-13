@@ -1324,6 +1324,491 @@ namespace Aurora.Web.Migrations
                     b.ToTable("AuroraUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Aurora.Modules.Workforce.Domain.CriticalRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Criticality")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RequiredHeadcount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RoleTitle")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("CriticalRoles", (string)null);
+                });
+
+            modelBuilder.Entity("Aurora.Modules.Finance.Domain.CostCenter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ActualSpend")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AnnualBudget")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("CostCenters", (string)null);
+                });
+
+            modelBuilder.Entity("Aurora.Modules.Operations.Domain.ProductionRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ActualUnits")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DefectiveUnits")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("FactoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("PeriodStartUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PlannedUnits")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("ProductionRecords", (string)null);
+                });
+
+            modelBuilder.Entity("Aurora.Modules.Technology.Domain.PatchPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("LastPatchedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("PatchSlaDays")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TechnologyAssetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("TechnologyPatchPolicies", (string)null);
+                });
+
+            modelBuilder.Entity("Aurora.Modules.Markets.Domain.MarketObservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("DemandIndex")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Market")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("ObservedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("PriceIndex")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("MarketObservations", (string)null);
+                });
+
+            modelBuilder.Entity("Aurora.Modules.Assets.Domain.PhysicalAsset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AcquisitionCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("InServiceOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ResidualValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UsefulLifeYears")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("PhysicalAssets", (string)null);
+                });
+
+            modelBuilder.Entity("Aurora.Modules.Contracts.Domain.SupplierContract", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AnnualValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Counterparty")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("EndsOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("LatePenaltyPerDay")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("NoticePeriodDays")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<DateTime>("StartsOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("SupplierContracts", (string)null);
+                });
+
+            modelBuilder.Entity("Aurora.Modules.Monitoring.Domain.MetricDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("MaximumThreshold")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("MinimumThreshold")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("MetricDefinitions", (string)null);
+                });
+
+            modelBuilder.Entity("Aurora.Modules.Monitoring.Domain.MetricReading", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MetricDefinitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ThresholdState")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("MetricReadings", (string)null);
+                });
+
+            modelBuilder.Entity("Aurora.Modules.Alerts.Domain.Alert", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AcknowledgedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AcknowledgedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("RaisedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("Alerts", (string)null);
+                });
+
+            modelBuilder.Entity("Aurora.Modules.SupplyChain.Domain.InventoryPosition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AverageDailyDemand")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("OnHandUnits")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ReplenishmentLeadTimeDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SafetyStockUnits")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Sku")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("InventoryPositions", (string)null);
+                });
+
             modelBuilder.Entity("Aurora.Modules.AI.Domain.AiEvidence", b =>
                 {
                     b.HasOne("Aurora.Modules.AI.Domain.AiInvestigation", null)

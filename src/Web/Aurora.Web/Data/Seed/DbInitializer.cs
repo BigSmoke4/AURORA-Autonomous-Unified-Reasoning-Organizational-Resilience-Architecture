@@ -220,24 +220,45 @@ public static class DbInitializer
 
         await db.SaveChangesAsync();
 
+        await OperationalModuleSeeder.SeedAsync(db, org, factories, techAssets, TimeProvider.System.GetUtcNow().UtcDateTime);
+
         logger.LogInformation(
             "AURORA seed complete: organization {Org}, {NodeCount} graph nodes, {EdgeCount} graph edges.",
             org.Name, nodeByEntity.Count, await db.GraphEdges.IgnoreQueryFilters().CountAsync(e => e.OrganizationId == org.Id));
     }
 
+    /// <summary>
+    /// Claim type that records each default permission already applied to a role. A permission is granted from
+    /// the defaults at most once: if an administrator later removes it, it stays removed on every restart.
+    /// Roles seeded before this marker existed have no markers, so their missing defaults are granted once.
+    /// </summary>
+    private const string DefaultPermissionAppliedClaimType = "aurora:default-permission-applied";
+
     private static async Task SeedRolesAsync(RoleManager<ApplicationRole> roleManager)
     {
         foreach (var roleName in AuroraRoles.All)
         {
-            if (await roleManager.RoleExistsAsync(roleName)) continue;
-
-            var role = new ApplicationRole(roleName);
-            await roleManager.CreateAsync(role);
-
-            if (AuroraPermissions.DefaultRolePermissions.TryGetValue(roleName, out var permissions))
+            var role = await roleManager.FindByNameAsync(roleName);
+            if (role is null)
             {
-                foreach (var permission in permissions)
-                    await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("aurora:permission", permission));
+                role = new ApplicationRole(roleName);
+                await roleManager.CreateAsync(role);
+            }
+
+            if (!AuroraPermissions.DefaultRolePermissions.TryGetValue(roleName, out var defaults)) continue;
+
+            var claims = await roleManager.GetClaimsAsync(role);
+            var granted = claims.Where(c => c.Type == AuroraClaims.Permission).Select(c => c.Value)
+                .ToHashSet(StringComparer.Ordinal);
+            var applied = claims.Where(c => c.Type == DefaultPermissionAppliedClaimType).Select(c => c.Value)
+                .ToHashSet(StringComparer.Ordinal);
+
+            foreach (var permission in defaults.Where(p => !applied.Contains(p)))
+            {
+                if (!granted.Contains(permission))
+                    await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim(AuroraClaims.Permission, permission));
+
+                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim(DefaultPermissionAppliedClaimType, permission));
             }
         }
     }

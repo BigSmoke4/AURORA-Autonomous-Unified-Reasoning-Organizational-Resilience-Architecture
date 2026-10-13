@@ -1,0 +1,52 @@
+@model Aurora.Web.Models.Modules.AlertsIndexViewModel
+@{ ViewData["Title"] = "Alerts"; }
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h1>Alerts</h1></div>
+    <p class="aurora-note">Open alerts first, then by severity and time raised. An alert moves from open to acknowledged to resolved, and every transition is recorded in the audit trail.</p>
+
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Raised (UTC)</th><th>Severity</th><th>Alert</th><th>Status</th><th>Acknowledged</th>@if (Model.CanManage) { <th>Actions</th> }</tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                <td>@row.RaisedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                <td><span class="aurora-status-pill aurora-status-pill--@row.Tone">@row.Severity</span></td>
+                <td>
+                    <strong>@row.Title</strong>
+                    @if (!string.IsNullOrEmpty(row.Detail))
+                    {
+                        <div class="aurora-note">@row.Detail</div>
+                    }
+                </td>
+                <td>@row.Status</td>
+                <td>@(row.AcknowledgedAtUtc is { } ack ? ack.ToString("yyyy-MM-dd HH:mm") : ModuleFormatting.NotApplicable)</td>
+                @if (Model.CanManage)
+                {
+                    <td>
+                        @if (row.CanAcknowledge)
+                        {
+                            <form asp-controller="Alerts" asp-action="Acknowledge" asp-route-id="@row.Id" method="post" class="aurora-inline-form">
+                                <button type="submit" class="aurora-btn">Acknowledge</button>
+                            </form>
+                        }
+                        @if (row.CanResolve)
+                        {
+                            <form asp-controller="Alerts" asp-action="Resolve" asp-route-id="@row.Id" method="post" class="aurora-inline-form">
+                                <button type="submit" class="aurora-btn">Resolve</button>
+                            </form>
+                        }
+                    </td>
+                }
+            </tr>
+        }
+        @if (!Model.Rows.Any())
+        {
+            <tr><td colspan="@(Model.CanManage ? 6 : 5)" class="aurora-table__empty">No alerts. Nothing needs attention.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>

@@ -37,14 +37,15 @@ and OpenTelemetry, as a modular monolith on .NET 10.
 | Decisions and human approval | `Aurora.Modules.Decisions` | Proposals come from counterfactual evidence and a weighted score. Approve and reject are explicit. The proposer cannot approve or reject their own decision. Execution and the actual outcome are recorded separately, and the prediction error is computed. |
 | Analysis records | `Aurora.Modules.Analysis` | Counterfactual, optimization, and forecast results are stored with their model version, inputs, and outputs. |
 | AI investigation | `InvestigationOrchestrator`, `OpenAiCompatibleAiProvider` | Four deterministic tools run first and produce evidence. A model, if configured, only phrases the narrative. Without a model, a deterministic narrative is used. |
+| Operational modules | `Aurora.Modules.{Workforce,Finance,Operations,Technology,Markets,Assets,Contracts,SupplyChain,Monitoring,Alerts,Customers,Reporting}`, `Controllers/`, `Views/` | Twelve modules in the Enterprise and Insight menus. Each page shows deterministic calculations (decimal money, UTC dates, explicit thresholds) over stored inputs, and only the calculators produce figures. Writes are permission-gated, audited, and committed in one transaction. A reading outside its thresholds raises one warning alert per metric, and the alert resolves when a later reading is back in range. The executive report exports as CSV with a formula guard. See ADR 007. |
 | Audit trail | `Aurora.Modules.Audit` | Records sign-ins, scenario and simulation runs, analyses, decision transitions, and AI investigations. Each entry carries the trace id as its correlation id. Entries commit in the same transaction as the change they describe. |
 | Natural-language scenario drafting | `NaturalLanguageScenarioExtractor` | A rule-based extractor, not an LLM call. It reports missing fields and does not guess them. |
 | Command Center | `CommandCenterController` | Live counts from the database and the neural graph view (`wwwroot/js/aurora.graph.js`). |
 | Real-time simulation progress | SignalR, `Hubs/SimulationHub.cs` | Authenticated users join a group for one scenario. The group name includes the caller's organization, so tenants cannot join each other's groups. Progress is reported in three real phases: snapshot loaded, impact propagated, results saved. It is best-effort and never changes the run's outcome. |
 | Security hardening | `SecurityHeadersMiddleware`, `RateLimitPolicies` | A strict Content Security Policy that forbids inline script and style. Rate limits on sign-in, AI investigation, and analysis endpoints. |
 | Observability | `AuroraTelemetry`, OpenTelemetry, Serilog | Tracing and metrics for ASP.NET Core and outgoing HTTP calls, with AURORA's own activity source and meter. Structured request logs through Serilog. Console exporters are used only in Development. Health endpoints are `/health/live`, `/health/ready`, and `/health`. |
-| Seed data | `Data/Seed/DbInitializer.cs` | The "Meridian Industrial Group" demo, with a deliberate single-source supplier dependency. Idempotent. |
-| Tests | `tests/Aurora.Tests` | Unit tests for the graph, simulation, counterfactual, risk, forecasting, optimization, decision scoring, AI provider and orchestrator, and audit. An integration test runs the migrations against PostgreSQL and checks tenant isolation. The web host is started in Production mode and must serve its health, readiness, and login endpoints. Claim resolution is tested against ASP.NET Core Identity: active users get their organization, and deactivated or deleted users get none. |
+| Seed data | `Data/Seed/DbInitializer.cs`, `Data/Seed/OperationalModuleSeeder.cs` | The "Meridian Industrial Group" demo, with a deliberate single-source supplier dependency. Phase 3 demo records (roles, cost centers, production, patch policies, markets, assets, contracts, inventory, metrics, one open alert) are added for new organizations only. Idempotent. |
+| Tests | `tests/Aurora.Tests` | Unit tests for the graph, simulation, counterfactual, risk, forecasting, optimization, decision scoring, AI provider and orchestrator, and audit. An integration test runs the migrations against PostgreSQL and checks tenant isolation. The web host is started in Production mode and must serve its health, readiness, and login endpoints. Claim resolution is tested against ASP.NET Core Identity: active users get their organization, and deactivated or deleted users get none. Phase 3 calculators, entity rules, alert lifecycle, and CSV escaping have unit tests under `tests/Aurora.Tests/Modules`. |
 | Docker | `Dockerfile`, `docker-compose.yml` | PostgreSQL 16 plus the web app. The image runs as the non-root `app` user, and `.dockerignore` keeps `.env` and test output out of the build. Secrets come from the environment. CI builds the image, starts it against PostgreSQL, and checks readiness and security headers on every push. The compose stack serves plain HTTP for local use (`Security__RequireHttps=false`). Any shared deployment must put TLS in front and leave that setting at its default. |
 
 ---
@@ -56,8 +57,7 @@ These parts of the specification are **not** built. None is faked, and none has 
 - **Domain events.** There is no domain event infrastructure. The earlier `Events/` code was removed
   because nothing used it. Module side effects are direct calls, and audit entries are written
   synchronously.
-- **Modules.** Workforce, Finance, Operations, Technology, Customers, Markets, Assets, Contracts,
-  Monitoring, Alerts, Reporting, and SupplyChain are not built as modules.
+- **Module depth.** The Phase 3 modules have no repository layer. Their controllers use `AuroraDbContext` directly (ADR 007). Customers and Reporting have no tables. Monitoring readings are entered by hand, with no sensor or feed ingestion, and patch policies are not linked to vulnerability feeds.
 - **Historical counterfactuals.** Analyses run against the current graph. There are no historical
   graph snapshots, so "what if this had happened six months ago" is not supported.
 - **Minimum-cut analysis.** The single-sourced node screen is a local heuristic. It is not a
@@ -130,6 +130,7 @@ The migration set is:
 |---|---|---|
 | `20260901062452_InitialCreate` | Generated by EF Core 8 | Identity tables, organizations, the digital twin, graph, risk, scenarios, and simulation tables. |
 | `20261013120000_Phase2AuditAnalysisDecisionsAi` | Hand-written, with a Designer file | Decision provenance and prediction tracking columns, AI narrative provenance, the `AnalysisRecords` and `AuditEntries` tables, and their indexes. Existing rows get safe defaults. |
+| `20261013140000_Phase3OperationalModules` | Generated, with a Designer file | Eleven tables for the operational modules, each tenant-scoped and indexed by `OrganizationId`: critical roles, cost centers, production records, patch policies, market observations, physical assets, supplier contracts, inventory positions, metric definitions, metric readings, and alerts. Additive only; no existing table changes. |
 
 The snapshot in `Migrations/AuroraDbContextModelSnapshot.cs` matches the model. CI runs
 `dotnet ef migrations has-pending-model-changes`, which fails the build if the model and the
@@ -207,7 +208,7 @@ The provider never receives tools and never computes numbers.
 ## Roadmap
 
 1. Domain events, with an outbox, once a second consumer needs them.
-2. The remaining specification modules, starting with Finance, Operations, and SupplyChain.
+2. Sensor and feed ingestion for Monitoring and Technology, and repository layers for the Phase 3 modules once a second consumer needs them.
 3. Historical graph snapshots, which enable point-in-time counterfactuals.
 4. Retrieval over organizational documents, feeding the same evidence model as the graph tools.
 5. A background job queue for long-running simulations and analyses (ADR 005).

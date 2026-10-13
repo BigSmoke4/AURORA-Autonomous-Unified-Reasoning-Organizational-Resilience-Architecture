@@ -131,6 +131,7 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
     options.SupportedUICultures = [CultureInfo.InvariantCulture];
 });
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<Aurora.Web.Models.CurrentOrganizationAccessor>();
 builder.Services.AddScoped<ITenantContext, Aurora.Web.Models.RequestTenantContext>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authentication.IClaimsTransformation, Aurora.Web.Models.AuroraClaimsTransformation>();
@@ -183,6 +184,7 @@ builder.Services.AddScoped<IAiProvider>(sp => sp.GetRequiredService<AiOptions>()
 // ---------- Phase 2 modules: audit, analysis records, decisions, deterministic analysis engines ----------
 builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 builder.Services.AddScoped<AuditRecorder>();
+builder.Services.AddScoped<Aurora.Web.Data.ExecutiveReportBuilder>();
 builder.Services.AddScoped<IAnalysisRecordRepository, AnalysisRecordRepository>();
 builder.Services.AddScoped<IDecisionRepository, DecisionRepository>();
 builder.Services.AddSingleton<CounterfactualAnalyzer>();

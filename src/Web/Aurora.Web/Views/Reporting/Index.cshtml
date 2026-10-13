@@ -1,0 +1,31 @@
+@model Aurora.Web.Models.Modules.ReportingIndexViewModel
+@{ ViewData["Title"] = "Executive report"; }
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header">
+        <h1>Executive report</h1>
+        <a asp-controller="Reporting" asp-action="Export" class="aurora-btn aurora-btn--primary">Download CSV</a>
+    </div>
+    <p class="aurora-note">Every figure comes from the same deterministic calculator as its module page. The CSV export is audited, and it guards against spreadsheet formula injection.</p>
+
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Area</th><th>Metric</th><th>Value</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var line in Model.Lines)
+        {
+            <tr>
+                <td>@line.Area</td>
+                <td>@line.Metric</td>
+                <td>@line.Value</td>
+                <td>@line.Status</td>
+            </tr>
+        }
+        @if (!Model.Lines.Any())
+        {
+            <tr><td colspan="4" class="aurora-table__empty">No data yet. Add records in the module pages to build the report.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>

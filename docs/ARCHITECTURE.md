@@ -52,6 +52,7 @@ monolith and not microservices.
   provenance columns, and the `AnalysisRecords` and `AuditEntries` tables. Existing rows receive
   safe defaults. Its `Down` reverts all of it. The integration test applies the chain, reverts
   Phase 2, and applies it again.
+- `Phase3OperationalModules` (`20261013140000`) adds eleven tenant-scoped tables for the operational modules. It is additive only.
 - Money uses `decimal` columns with explicit precision. Timestamps are UTC (`timestamp with time zone`).
 
 ## Tenant isolation
@@ -181,6 +182,31 @@ See [ADR 004](ADR/004-ai-provider-abstraction.md) for why the model is never the
 Both services are pure functions. Their outputs are stored with their model version so they can be
 reproduced.
 
+## Phase 3 operational modules
+
+Twelve modules sit in the Enterprise and Insight menus. Each follows the same shape:
+
+- **Domain** entities guard their invariants in constructors and methods, using `DomainGuard`.
+- **Application** holds static calculators. They take values and an evaluation date, use `decimal`,
+  and return result records. They never read the clock or the database.
+- **Controllers** inherit `ModuleControllerBase`. It resolves the tenant, stages audit entries through
+  `AuditRecorder`, and commits once with `SaveChangesAsync`, so a change and its audit row commit together.
+- **Views** use the shared form and table classes. The module navigation is in `aurora-modules.css`.
+
+Monitoring raises one warning alert per metric when a reading falls outside its inclusive bounds. The
+alert's source key is `monitoring:metric:{id}`, which keeps it to one open alert per metric. A later
+in-range reading resolves it. Alerts move from open to acknowledged to resolved, and each transition is
+audited.
+
+`ExecutiveReportBuilder` composes the same calculators for the Reporting page. The CSV export prefixes
+formula-trigger fields with an apostrophe (ADR 007). Customers computes a Herfindahl-Hirschman index on a
+0 to 10,000 scale from the digital twin's customer exposure.
+
+Role defaults are granted through `DbInitializer.SeedRolesAsync`. A marker claim records each default
+permission once it has been applied. An administrator who removes a default permission keeps it removed
+after a restart. A database seeded before this marker existed receives its missing defaults once, on
+first start, and then the markers take over.
+
 ## What is intentionally not implemented
 
 These parts of the specification are not built. The code contains no stubs or placeholder logic for them.
@@ -189,9 +215,8 @@ These parts of the specification are not built. The code contains no stubs or pl
   removed because nothing published or handled events. Side effects are direct calls in the same
   unit of work. An outbox and event dispatch are future work, to be added when a second consumer
   needs them.
-- **Modules** named in the specification but not built: Workforce, Finance, Operations, Technology,
-  Customers, Markets, Assets, Contracts, Monitoring, Alerts, Reporting, and SupplyChain. The
-  Customers and Technology data that exists today lives in the DigitalTwin module.
+- **Module depth.** The Phase 3 modules have no repository layer; their controllers use `AuroraDbContext`
+  directly (ADR 007). Customers and Reporting have no tables. Monitoring readings are entered by hand.
 - **Historical graph states.** There are no point-in-time graph snapshots. Counterfactuals use the
   current graph.
 - **Minimum-cut and max-flow analysis.** The single-sourcing screen is a local heuristic.

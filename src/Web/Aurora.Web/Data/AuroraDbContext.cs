@@ -1,15 +1,25 @@
 using System.Reflection;
 using Aurora.Modules.AI.Domain;
+using Aurora.Modules.Alerts.Domain;
 using Aurora.Modules.Analysis.Domain;
+using Aurora.Modules.Assets.Domain;
 using Aurora.Modules.Audit.Domain;
+using Aurora.Modules.Contracts.Domain;
 using Aurora.Modules.Decisions.Domain;
 using Aurora.Modules.DigitalTwin.Domain;
+using Aurora.Modules.Finance.Domain;
 using Aurora.Modules.Graph.Domain;
 using Aurora.Modules.Identity.Domain;
+using Aurora.Modules.Markets.Domain;
+using Aurora.Modules.Monitoring.Domain;
+using Aurora.Modules.Operations.Domain;
 using Aurora.Modules.Organizations.Domain;
 using Aurora.Modules.Risk.Domain;
 using Aurora.Modules.Scenarios.Domain;
 using Aurora.Modules.Simulation.Domain;
+using Aurora.Modules.SupplyChain.Domain;
+using Aurora.Modules.Technology.Domain;
+using Aurora.Modules.Workforce.Domain;
 using Aurora.Shared.Kernel;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -81,6 +91,19 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
     // Audit
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
+    // Phase 3 operational modules
+    public DbSet<CriticalRole> CriticalRoles => Set<CriticalRole>();
+    public DbSet<CostCenter> CostCenters => Set<CostCenter>();
+    public DbSet<ProductionRecord> ProductionRecords => Set<ProductionRecord>();
+    public DbSet<PatchPolicy> TechnologyPatchPolicies => Set<PatchPolicy>();
+    public DbSet<MarketObservation> MarketObservations => Set<MarketObservation>();
+    public DbSet<PhysicalAsset> PhysicalAssets => Set<PhysicalAsset>();
+    public DbSet<SupplierContract> SupplierContracts => Set<SupplierContract>();
+    public DbSet<MetricDefinition> MetricDefinitions => Set<MetricDefinition>();
+    public DbSet<MetricReading> MetricReadings => Set<MetricReading>();
+    public DbSet<Alert> Alerts => Set<Alert>();
+    public DbSet<InventoryPosition> InventoryPositions => Set<InventoryPosition>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -96,6 +119,16 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
         builder.ApplyConfigurationsFromAssembly(typeof(AiInvestigation).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(AnalysisRecord).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(AuditEntry).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(CriticalRole).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(CostCenter).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(ProductionRecord).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(PatchPolicy).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(MarketObservation).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(PhysicalAsset).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(SupplierContract).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(MetricDefinition).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(Alert).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(InventoryPosition).Assembly);
 
         // Identity tables get an "Aurora" prefix so they're visually grouped in the schema.
         builder.Entity<ApplicationUser>().ToTable("AuroraUsers");

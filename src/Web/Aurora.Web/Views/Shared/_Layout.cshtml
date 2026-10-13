@@ -21,6 +21,48 @@
                 <a asp-controller="Strategy" asp-action="Index">Strategy Lab</a>
                 <a asp-controller="Forecasting" asp-action="Index">Forecasting</a>
                 <a asp-controller="Decisions" asp-action="Index">Decisions</a>
+                @{
+                    var canSeeEnterprise = User.HasClaim(AuroraClaims.Permission, AuroraPermissions.WorkforceRead)
+                        || User.HasClaim(AuroraClaims.Permission, AuroraPermissions.FinanceRead)
+                        || User.HasClaim(AuroraClaims.Permission, AuroraPermissions.OperationsRead)
+                        || User.HasClaim(AuroraClaims.Permission, AuroraPermissions.TechnologyRead)
+                        || User.HasClaim(AuroraClaims.Permission, AuroraPermissions.SupplyChainRead)
+                        || User.HasClaim(AuroraClaims.Permission, AuroraPermissions.AssetsRead)
+                        || User.HasClaim(AuroraClaims.Permission, AuroraPermissions.ContractsRead)
+                        || User.HasClaim(AuroraClaims.Permission, AuroraPermissions.MarketsRead);
+                    var canSeeInsight = User.HasClaim(AuroraClaims.Permission, AuroraPermissions.CustomersRead)
+                        || User.HasClaim(AuroraClaims.Permission, AuroraPermissions.MonitoringRead)
+                        || User.HasClaim(AuroraClaims.Permission, AuroraPermissions.AlertsRead)
+                        || User.HasClaim(AuroraClaims.Permission, AuroraPermissions.ReportsRead);
+                }
+                @if (canSeeEnterprise)
+                {
+                    <details class="aurora-nav-group">
+                        <summary>Enterprise</summary>
+                        <div class="aurora-nav-group__menu">
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.WorkforceRead)) { <a asp-controller="Workforce" asp-action="Index">Workforce</a> }
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.FinanceRead)) { <a asp-controller="Finance" asp-action="Index">Finance</a> }
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.OperationsRead)) { <a asp-controller="Operations" asp-action="Index">Operations</a> }
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.TechnologyRead)) { <a asp-controller="Technology" asp-action="Index">Technology</a> }
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.SupplyChainRead)) { <a asp-controller="SupplyChain" asp-action="Index">Supply Chain</a> }
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.AssetsRead)) { <a asp-controller="Assets" asp-action="Index">Assets</a> }
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.ContractsRead)) { <a asp-controller="Contracts" asp-action="Index">Contracts</a> }
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.MarketsRead)) { <a asp-controller="Markets" asp-action="Index">Markets</a> }
+                        </div>
+                    </details>
+                }
+                @if (canSeeInsight)
+                {
+                    <details class="aurora-nav-group">
+                        <summary>Insight</summary>
+                        <div class="aurora-nav-group__menu">
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.CustomersRead)) { <a asp-controller="Customers" asp-action="Index">Customers</a> }
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.MonitoringRead)) { <a asp-controller="Monitoring" asp-action="Index">Monitoring</a> }
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.AlertsRead)) { <a asp-controller="Alerts" asp-action="Index">Alerts</a> }
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.ReportsRead)) { <a asp-controller="Reporting" asp-action="Index">Executive report</a> }
+                        </div>
+                    </details>
+                }
                 @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.AuditRead))
                 {
                     <a asp-controller="Audit" asp-action="Index">Audit</a>

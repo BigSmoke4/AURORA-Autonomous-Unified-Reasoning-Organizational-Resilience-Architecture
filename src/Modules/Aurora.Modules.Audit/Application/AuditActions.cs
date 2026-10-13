@@ -17,4 +17,19 @@ public static class AuditActions
     public const string DecisionExecutionStarted = "Decision.ExecutionStarted";
     public const string DecisionOutcomeRecorded = "Decision.OutcomeRecorded";
     public const string AiInvestigation = "AI.Investigation";
+    public const string WorkforceRoleCreated = "Workforce.RoleCreated";
+    public const string FinanceCostCenterCreated = "Finance.CostCenterCreated";
+    public const string OperationsProductionRecorded = "Operations.ProductionRecorded";
+    public const string TechnologyPatchPolicyCreated = "Technology.PatchPolicyCreated";
+    public const string TechnologyPatchRecorded = "Technology.PatchRecorded";
+    public const string MarketObservationRecorded = "Markets.ObservationRecorded";
+    public const string AssetRegistered = "Assets.Registered";
+    public const string ContractRegistered = "Contracts.Registered";
+    public const string MetricDefinitionCreated = "Monitoring.MetricDefinitionCreated";
+    public const string MetricReadingRecorded = "Monitoring.ReadingRecorded";
+    public const string AlertRaised = "Alerts.Raised";
+    public const string AlertAcknowledged = "Alerts.Acknowledged";
+    public const string AlertResolved = "Alerts.Resolved";
+    public const string SupplyPositionRecorded = "SupplyChain.PositionRecorded";
+    public const string ReportExported = "Reporting.Exported";
 }

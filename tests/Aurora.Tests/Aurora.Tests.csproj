@@ -22,6 +22,18 @@
     <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Decisions\Aurora.Modules.Decisions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Forecasting\Aurora.Modules.Forecasting.csproj" />
     <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Optimization\Aurora.Modules.Optimization.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Workforce\Aurora.Modules.Workforce.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Finance\Aurora.Modules.Finance.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Operations\Aurora.Modules.Operations.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Technology\Aurora.Modules.Technology.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Customers\Aurora.Modules.Customers.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Markets\Aurora.Modules.Markets.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Assets\Aurora.Modules.Assets.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Contracts\Aurora.Modules.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Monitoring\Aurora.Modules.Monitoring.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Alerts\Aurora.Modules.Alerts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Reporting\Aurora.Modules.Reporting.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.SupplyChain\Aurora.Modules.SupplyChain.csproj" />
     <ProjectReference Include="..\..\src\Web\Aurora.Web\Aurora.Web.csproj" />
   </ItemGroup>
 </Project>

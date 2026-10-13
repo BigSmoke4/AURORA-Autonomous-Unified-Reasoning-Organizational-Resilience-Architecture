@@ -18,6 +18,18 @@ COPY src/Modules/Aurora.Modules.Audit/Aurora.Modules.Audit.csproj src/Modules/Au
 COPY src/Modules/Aurora.Modules.Analysis/Aurora.Modules.Analysis.csproj src/Modules/Aurora.Modules.Analysis/
 COPY src/Modules/Aurora.Modules.Forecasting/Aurora.Modules.Forecasting.csproj src/Modules/Aurora.Modules.Forecasting/
 COPY src/Modules/Aurora.Modules.Optimization/Aurora.Modules.Optimization.csproj src/Modules/Aurora.Modules.Optimization/
+COPY src/Modules/Aurora.Modules.Workforce/Aurora.Modules.Workforce.csproj src/Modules/Aurora.Modules.Workforce/
+COPY src/Modules/Aurora.Modules.Finance/Aurora.Modules.Finance.csproj src/Modules/Aurora.Modules.Finance/
+COPY src/Modules/Aurora.Modules.Operations/Aurora.Modules.Operations.csproj src/Modules/Aurora.Modules.Operations/
+COPY src/Modules/Aurora.Modules.Technology/Aurora.Modules.Technology.csproj src/Modules/Aurora.Modules.Technology/
+COPY src/Modules/Aurora.Modules.Customers/Aurora.Modules.Customers.csproj src/Modules/Aurora.Modules.Customers/
+COPY src/Modules/Aurora.Modules.Markets/Aurora.Modules.Markets.csproj src/Modules/Aurora.Modules.Markets/
+COPY src/Modules/Aurora.Modules.Assets/Aurora.Modules.Assets.csproj src/Modules/Aurora.Modules.Assets/
+COPY src/Modules/Aurora.Modules.Contracts/Aurora.Modules.Contracts.csproj src/Modules/Aurora.Modules.Contracts/
+COPY src/Modules/Aurora.Modules.Monitoring/Aurora.Modules.Monitoring.csproj src/Modules/Aurora.Modules.Monitoring/
+COPY src/Modules/Aurora.Modules.Alerts/Aurora.Modules.Alerts.csproj src/Modules/Aurora.Modules.Alerts/
+COPY src/Modules/Aurora.Modules.Reporting/Aurora.Modules.Reporting.csproj src/Modules/Aurora.Modules.Reporting/
+COPY src/Modules/Aurora.Modules.SupplyChain/Aurora.Modules.SupplyChain.csproj src/Modules/Aurora.Modules.SupplyChain/
 COPY src/Web/Aurora.Web/Aurora.Web.csproj src/Web/Aurora.Web/
 COPY tests/Aurora.Tests/Aurora.Tests.csproj tests/Aurora.Tests/
 
