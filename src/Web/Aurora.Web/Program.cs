@@ -158,6 +158,8 @@ builder.Services.AddScoped<InvestigationOrchestrator>();
 // The LLM is optional. When AI:Provider is configured, narratives come from an OpenAI-compatible
 // endpoint with timeouts and retries; otherwise the deterministic narrative is used (spec section 71).
 var aiTimeout = TimeSpan.FromSeconds(builder.Configuration.GetSection(AiOptions.SectionName).Get<AiOptions>()?.TimeoutSeconds ?? new AiOptions().TimeoutSeconds);
+const int AiTotalTimeoutMultiplier = 2;
+const int AiCircuitSamplingMultiplier = 3;
 builder.Services.AddHttpClient<OpenAiCompatibleAiProvider>((sp, client) =>
     {
         var options = sp.GetRequiredService<AiOptions>();
@@ -168,8 +170,11 @@ builder.Services.AddHttpClient<OpenAiCompatibleAiProvider>((sp, client) =>
     })
     .AddStandardResilienceHandler(options =>
     {
+        // The resilience library refuses to start unless the circuit breaker samples over at least twice the
+        // attempt timeout. Each attempt is bounded, and all attempts together are bounded by the total budget.
         options.AttemptTimeout.Timeout = aiTimeout;
-        options.TotalRequestTimeout.Timeout = aiTimeout * 2;
+        options.TotalRequestTimeout.Timeout = aiTimeout * AiTotalTimeoutMultiplier;
+        options.CircuitBreaker.SamplingDuration = aiTimeout * AiCircuitSamplingMultiplier;
     });
 builder.Services.AddScoped<IAiProvider>(sp => sp.GetRequiredService<AiOptions>().IsLlmProviderConfigured
     ? sp.GetRequiredService<OpenAiCompatibleAiProvider>()
