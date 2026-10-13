@@ -1,3 +1,4 @@
+using Aurora.Modules.AI.Domain;
 using Aurora.Modules.Decisions.Domain;
 
 namespace Aurora.Web.Models.Decisions;
@@ -14,6 +15,9 @@ public sealed class DecisionDetailsViewModel
     public bool CanDecide { get; init; }
     public bool CanStartExecution { get; init; }
     public bool CanRecordOutcome { get; init; }
+    public bool CanDebate { get; init; }
+    public DebateSession? Debate { get; init; }
+    public IReadOnlyList<DebateArgument> DebateArguments { get; init; } = Array.Empty<DebateArgument>();
 }
 
 public sealed class RecordOutcomeForm

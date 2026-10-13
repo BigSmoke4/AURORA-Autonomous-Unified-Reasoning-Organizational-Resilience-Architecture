@@ -5,12 +5,12 @@ using Aurora.Modules.Identity.Domain;
 using Aurora.Web.Data;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Modules;
+using Aurora.Web.Validation;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using FluentValidation;
-using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Contract term, renewal notice windows and delay penalty exposure (spec section 25).</summary>
@@ -35,16 +35,16 @@ public class ContractsController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.ContractsManage)]
-    public async Task<IActionResult> Create(SupplierContractForm form, [FromServices] IValidator<SupplierContractForm> validator, CancellationToken ct)
+    public async Task<IActionResult> Create([Bind(Prefix = nameof(ContractsIndexViewModel.Form))] SupplierContractForm form, [FromServices] IValidator<SupplierContractForm> validator, CancellationToken ct)
     {
-        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct, nameof(ContractsIndexViewModel.Form));
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, 0, ct));
 
         var contract = new SupplierContract(org.Id, form.Reference, form.Counterparty, form.StartsOn, form.EndsOn,
             form.AnnualValue, form.LatePenaltyPerDay, form.NoticePeriodDays);
-        Db.SupplierContracts.Add(contract);
+        Entities<SupplierContract>().Add(contract);
         RecordAudit(org, AuditActions.ContractRegistered, nameof(SupplierContract), contract.Id.ToString());
         await Db.SaveChangesAsync(ct);
 
@@ -54,7 +54,7 @@ public class ContractsController : ModuleControllerBase
 
     private async Task<ContractsIndexViewModel> BuildIndexAsync(SupplierContractForm form, int delayDays, CancellationToken ct)
     {
-        var contracts = await Db.SupplierContracts.AsNoTracking().OrderBy(c => c.EndsOnUtc).ToListAsync(ct);
+        var contracts = await Entities<SupplierContract>().ListAsync(null, q => q.OrderBy(c => c.EndsOnUtc), ct);
         var now = TodayUtc();
 
         var rows = contracts.Select(c =>

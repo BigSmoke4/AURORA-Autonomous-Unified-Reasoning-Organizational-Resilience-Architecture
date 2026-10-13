@@ -132,6 +132,14 @@ builder.Services.Configure<OutboxOptions>(builder.Configuration.GetSection(Outbo
 builder.Services.AddScoped<IDomainEventHandler, DomainEventLogHandler>();
 builder.Services.AddScoped<IDomainEventHandler, OrganizationNotificationHandler>();
 builder.Services.AddHostedService<OutboxDispatcher>();
+builder.Services.Configure<Aurora.Web.Infrastructure.Jobs.BackgroundJobOptions>(builder.Configuration.GetSection(Aurora.Web.Infrastructure.Jobs.BackgroundJobOptions.SectionName));
+builder.Services.AddScoped<Aurora.Web.Infrastructure.Jobs.BackgroundJobQueue>();
+builder.Services.AddScoped<Aurora.Web.Infrastructure.Jobs.IBackgroundJobHandler, Aurora.Web.Integration.Feeds.MetricFeedJobHandler>();
+builder.Services.AddScoped<Aurora.Web.Integration.Feeds.IExternalFeedAdapter, Aurora.Web.Integration.Feeds.FixtureMetricFeedAdapter>();
+builder.Services.AddScoped<Aurora.Web.Integration.Feeds.MetricFeedIngestor>();
+builder.Services.AddScoped<Aurora.Web.Services.GraphSnapshotStore>();
+builder.Services.AddScoped<Aurora.Web.Services.DecisionDebateService>();
+builder.Services.AddHostedService<Aurora.Web.Infrastructure.Jobs.BackgroundJobDispatcher>();
 
 // Decimal values (scores, percentages, forecast levels) are rendered and bound with invariant
 // culture, so form round-trips never depend on the host's locale.
@@ -145,6 +153,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<Aurora.Web.Models.CurrentOrganizationAccessor>();
 builder.Services.AddScoped<ITenantContext, Aurora.Web.Models.RequestTenantContext>();
+builder.Services.AddScoped<Aurora.Web.Models.JobTenantScope>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authentication.IClaimsTransformation, Aurora.Web.Models.AuroraClaimsTransformation>();
 
 // ---------- Module contracts -> Web infrastructure implementations ----------

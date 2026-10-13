@@ -26,6 +26,11 @@ public class GraphNode : Entity, ITenantScoped
 
     protected GraphNode() { }
 
+    /// <summary>Rebuilds a node from a stored snapshot. The original id is kept so references to it stay valid.</summary>
+    public static GraphNode Restore(Guid id, Guid organizationId, GraphNodeType nodeType, Guid entityId, string displayName,
+        int criticality, decimal revenueExposure, string status) =>
+        new(organizationId, nodeType, entityId, displayName, criticality, revenueExposure, status) { Id = id };
+
     public GraphNode(Guid organizationId, GraphNodeType nodeType, Guid entityId, string displayName,
         int criticality, decimal revenueExposure, string status = "Healthy")
     {

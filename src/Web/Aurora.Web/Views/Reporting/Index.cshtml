@@ -28,4 +28,27 @@
         }
         </tbody>
     </table>
+
+    <h2>Export history</h2>
+    <p class="aurora-note">The most recent exports. The SHA-256 identifies the exact CSV bytes delivered.</p>
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Exported (UTC)</th><th>By</th><th>Lines</th><th>SHA-256</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var run in Model.Runs)
+        {
+            <tr>
+                <td>@ModuleFormatting.Date(run.GeneratedAtUtc)</td>
+                <td>@run.RequestedByName</td>
+                <td>@run.LineCount</td>
+                <td><code>@run.ContentSha256</code></td>
+            </tr>
+        }
+        @if (!Model.Runs.Any())
+        {
+            <tr><td colspan="4" class="aurora-table__empty">No exports yet.</td></tr>
+        }
+        </tbody>
+    </table>
 </section>

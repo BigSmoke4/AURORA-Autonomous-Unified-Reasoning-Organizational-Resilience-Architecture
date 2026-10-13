@@ -33,6 +33,38 @@
     </table>
 </section>
 
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h2>Background jobs</h2></div>
+    <p class="aurora-note">Jobs run outside the request. A failed job is retried after a delay, up to its attempt limit. The latest 20 are listed.</p>
+    @if (canManage)
+    {
+        <form asp-controller="Monitoring" asp-action="QueueFeedIngestion" method="post" class="aurora-form">
+            <button type="submit" class="aurora-btn aurora-btn--primary">Queue fixture feed ingestion</button>
+        </form>
+    }
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Kind</th><th>Status</th><th>Attempts</th><th>Completed</th><th>Result</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var job in Model.Jobs)
+        {
+            <tr>
+                <td><code>@job.Kind</code></td>
+                <td>@job.Status</td>
+                <td>@job.Attempts</td>
+                <td>@(job.CompletedAtUtc is { } done ? ModuleFormatting.Date(done) : ModuleFormatting.NotApplicable)</td>
+                <td>@(job.Summary ?? job.LastError ?? ModuleFormatting.NotApplicable)</td>
+            </tr>
+        }
+        @if (!Model.Jobs.Any())
+        {
+            <tr><td colspan="5" class="aurora-table__empty">No background jobs have run yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>
+
 @if (canManage)
 {
     <section class="aurora-panel aurora-panel--narrow">

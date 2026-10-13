@@ -59,6 +59,7 @@
                             @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.CustomersRead)) { <a asp-controller="Customers" asp-action="Index">Customers</a> }
                             @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.MonitoringRead)) { <a asp-controller="Monitoring" asp-action="Index">Monitoring</a> }
                             @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.AlertsRead)) { <a asp-controller="Alerts" asp-action="Index">Alerts</a> }
+                            @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.KnowledgeRead)) { <a asp-controller="Knowledge" asp-action="Index">Knowledge</a> }
                             @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.ReportsRead)) { <a asp-controller="Reporting" asp-action="Index">Executive report</a> }
                         </div>
                     </details>

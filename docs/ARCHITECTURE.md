@@ -53,6 +53,11 @@ monolith and not microservices.
   safe defaults. Its `Down` reverts all of it. The integration test applies the chain, reverts
   Phase 2, and applies it again.
 - `Phase3OperationalModules` (`20261013140000`) adds eleven tenant-scoped tables for the operational modules. It is additive only.
+- `Phase4DomainEvents` (`20261013160000`) adds the `OutboxMessages` table. It was generated before the Phase 5
+  changes and is not regenerated, because a committed migration must not change once it may have been applied.
+- `Phase5ReportingKnowledgeJobs` (`20261013180000`) adds seven tenant-scoped tables: `ExecutiveReportRuns`,
+  `GraphSnapshotRecords`, `KnowledgeDocuments`, `DocumentChunks`, `DebateSessions`, `DebateArguments`, and
+  `BackgroundJobs`. Its `Down` drops them.
 - Money uses `decimal` columns with explicit precision. Timestamps are UTC (`timestamp with time zone`).
 
 ## Tenant isolation
@@ -189,8 +194,9 @@ Twelve modules sit in the Enterprise and Insight menus. Each follows the same sh
 - **Domain** entities guard their invariants in constructors and methods, using `DomainGuard`.
 - **Application** holds static calculators. They take values and an evaluation date, use `decimal`,
   and return result records. They never read the clock or the database.
-- **Controllers** inherit `ModuleControllerBase`. It resolves the tenant, stages audit entries through
-  `AuditRecorder`, and commits once with `SaveChangesAsync`, so a change and its audit row commit together.
+- **Controllers** inherit `ModuleControllerBase`. It resolves the tenant, reads and stages entities through the
+  repository (`Entities<T>()`, ADR 008), stages audit entries through `AuditRecorder`, and commits once with
+  `SaveChangesAsync`, so a change and its audit row commit together.
 - **Views** use the shared form and table classes. The module navigation is in `aurora-modules.css`.
 
 Monitoring raises one warning alert per metric when a reading falls outside its inclusive bounds. The
@@ -222,17 +228,35 @@ first start, and then the markers take over.
   `OrganizationNotificationHandler` sends a `domainEvent` message to the SignalR group `org:{organizationId}` through
   `/hubs/organization`. Each connection joins only its own organization's group.
 
+## Snapshots, feeds, jobs, and retrieval
+
+These services were added with ADRs 008 to 010.
+
+- **Graph snapshots.** `GraphSnapshotStore.CaptureAsync` writes the live graph as versioned JSON. A
+  counterfactual with a `GraphSnapshotId` restores the capture through `GraphSnapshotCodec` and runs against it.
+  Node and edge ids survive the round trip. A capture belonging to another tenant is not found.
+- **Metric feed ingestion.** The Monitoring page queues a `feeds.metrics.ingest` job. The job's handler fetches
+  the payload from a named `IExternalFeedAdapter`, then `MetricFeedParser` validates it against a fixed schema
+  (schema version 1, at most 1,000 rows). Each accepted row goes through `MetricReadingRecorder`, the same path as
+  manual entry. A reading already recorded for the same metric, day, and value is not stored again.
+- **Background jobs.** `BackgroundJobDispatcher` runs as a hosted service. It claims a due job in its own scope,
+  runs the handler in a second scope whose tenant comes only from the job row, and records the result in a third
+  scope. A failed attempt returns the job to the queue after 30 seconds, up to 3 attempts. The 5-minute lease lets
+  an abandoned job be claimed again, so delivery is at least once.
+- **Knowledge retrieval.** Uploaded text is split by `DocumentChunker` into chunks of at most 800 characters.
+  `DocumentRetriever` ranks the chunks for a query of at most 200 characters with BM25, and returns at most 5 hits.
+- **Decision debate.** `DecisionDebateService` runs `DecisionDebateEngine` over a decision's recorded numbers,
+  stores the session and its arguments, and shows the latest debate on the decision page. The verdict is
+  rule-based, as ADR 010 describes.
+
 ## What is intentionally not implemented
 
 These parts of the specification are not built. The code contains no stubs or placeholder logic for them.
 
-- **Module depth.** The Phase 3 modules have no repository layer; their controllers use `AuroraDbContext`
-  directly (ADR 007). Customers and Reporting have no tables. Monitoring readings are entered by hand.
-- **Historical graph states.** There are no point-in-time graph snapshots. Counterfactuals use the
-  current graph.
-- **Retrieval over documents, multi-agent debate, and background job queues.** Simulation and
-  analysis run inline.
+- **Live external feeds and model endpoints.** The feed and model boundaries are adapter interfaces tested with
+  fixtures. The only feed source is the bundled fixture file, and no live feed or model endpoint has been
+  exercised.
+- **Vulnerability feeds.** Patch policies are not linked to a vulnerability feed.
 - **Distributed caching.** Nothing needs Redis at the current scale.
-- **FluentValidation.** Validation uses data annotations and explicit domain checks.
 
 See `README.md` for the roadmap.

@@ -5,12 +5,12 @@ using Aurora.Modules.Markets.Domain;
 using Aurora.Web.Data;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Modules;
+using Aurora.Web.Validation;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using FluentValidation;
-using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Demand and price trend per market from recorded index observations (spec section 23).</summary>
@@ -33,15 +33,15 @@ public class MarketsController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.MarketsManage)]
-    public async Task<IActionResult> Create(MarketObservationForm form, [FromServices] IValidator<MarketObservationForm> validator, CancellationToken ct)
+    public async Task<IActionResult> Create([Bind(Prefix = nameof(MarketsIndexViewModel.Form))] MarketObservationForm form, [FromServices] IValidator<MarketObservationForm> validator, CancellationToken ct)
     {
-        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct, nameof(MarketsIndexViewModel.Form));
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, ct));
 
         var observation = new MarketObservation(org.Id, form.Market, form.ObservedOn, form.DemandIndex, form.PriceIndex);
-        Db.MarketObservations.Add(observation);
+        Entities<MarketObservation>().Add(observation);
         RecordAudit(org, AuditActions.MarketObservationRecorded, nameof(MarketObservation), observation.Id.ToString());
         await Db.SaveChangesAsync(ct);
 
@@ -51,7 +51,7 @@ public class MarketsController : ModuleControllerBase
 
     private async Task<MarketsIndexViewModel> BuildIndexAsync(MarketObservationForm form, CancellationToken ct)
     {
-        var observations = await Db.MarketObservations.AsNoTracking().ToListAsync(ct);
+        var observations = await Entities<MarketObservation>().ListAsync(null, null, ct);
         var rows = observations
             .GroupBy(o => o.Market, StringComparer.Ordinal)
             .OrderBy(g => g.Key, StringComparer.Ordinal)

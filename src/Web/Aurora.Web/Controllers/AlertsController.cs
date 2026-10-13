@@ -26,12 +26,9 @@ public class AlertsController : ModuleControllerBase
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return View("NoOrganization");
 
-        var alerts = await Db.Alerts.AsNoTracking()
-            .OrderBy(a => a.Status == AlertStatus.Resolved)
-            .ThenByDescending(a => a.Severity)
-            .ThenByDescending(a => a.RaisedAtUtc)
-            .Take(AlertRowLimit)
-            .ToListAsync(ct);
+        var alerts = await Entities<Alert>().ListAsync(null,
+            q => q.OrderBy(a => a.Status == AlertStatus.Resolved).ThenByDescending(a => a.Severity).ThenByDescending(a => a.RaisedAtUtc),
+            ct, AlertRowLimit);
 
         var canManage = User.HasClaim(AuroraClaims.Permission, AuroraPermissions.AlertsAcknowledge);
         var rows = alerts.Select(a => new AlertRow(
@@ -58,7 +55,7 @@ public class AlertsController : ModuleControllerBase
         if (org is null) return NotFound();
         if (CurrentUserId() is not { } userId) return Forbid();
 
-        var alert = await Db.Alerts.FirstOrDefaultAsync(a => a.Id == id, ct);
+        var alert = await Entities<Alert>().FirstOrDefaultAsync(a => a.Id == id, null, ct);
         if (alert is null) return NotFound();
 
         try
@@ -86,7 +83,7 @@ public class AlertsController : ModuleControllerBase
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
 
-        var alert = await Db.Alerts.FirstOrDefaultAsync(a => a.Id == id, ct);
+        var alert = await Entities<Alert>().FirstOrDefaultAsync(a => a.Id == id, null, ct);
         if (alert is null) return NotFound();
 
         try

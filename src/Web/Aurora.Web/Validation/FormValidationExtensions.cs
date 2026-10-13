@@ -10,12 +10,14 @@ namespace Aurora.Web.Validation;
 public static class FormValidationExtensions
 {
     public static async Task ValidateIntoModelStateAsync<T>(
-        this IValidator<T> validator, T model, ModelStateDictionary modelState, CancellationToken ct)
+        this IValidator<T> validator, T model, ModelStateDictionary modelState, CancellationToken ct, string? prefix = null)
     {
         var result = await validator.ValidateAsync(model, ct);
         foreach (var failure in result.Errors)
         {
-            modelState.AddModelError(failure.PropertyName ?? string.Empty, failure.ErrorMessage);
+            // The key must match the field name the view renders, so a prefixed form reports under its prefix.
+            var property = failure.PropertyName ?? string.Empty;
+            modelState.AddModelError(string.IsNullOrEmpty(prefix) ? property : $"{prefix}.{property}", failure.ErrorMessage);
         }
     }
 }

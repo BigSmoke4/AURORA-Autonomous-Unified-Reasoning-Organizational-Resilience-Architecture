@@ -1,12 +1,13 @@
-using Aurora.Modules.Customers.Application;
 using Aurora.Modules.Audit.Application;
+using Aurora.Modules.Customers.Application;
+using Aurora.Modules.DigitalTwin.Domain;
 using Aurora.Modules.Identity.Domain;
 using Aurora.Web.Data;
+using Aurora.Web.Data.Repositories;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Modules;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Aurora.Web.Controllers;
 
@@ -24,12 +25,13 @@ public class CustomersController : ModuleControllerBase
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return View("NoOrganization");
 
-        var exposures = await Db.Customers.AsNoTracking()
-            .Select(c => new CustomerExposure(c.Name, c.AnnualRevenueExposure))
-            .ToListAsync(ct);
-
-        var result = CustomerConcentrationCalculator.Analyze(exposures);
-        var rows = result.Customers.Select(c => new CustomerRow(c.Name, c.Exposure, c.SharePct)).ToList();
+        var customers = await Customers(ct);
+        var result = CustomerConcentrationCalculator.Analyze(customers.Select(c => new CustomerExposure(c.Name, c.Exposure)).ToList());
+        // Analyze orders customers by exposure, then name. The same order gives each row its customer id.
+        var idsInRankOrder = customers
+            .OrderByDescending(c => c.Exposure).ThenBy(c => c.Name, StringComparer.Ordinal)
+            .Select(c => c.CustomerId).ToList();
+        var rows = result.Customers.Select((c, i) => new CustomerRow(idsInRankOrder[i], c.Name, c.Exposure, c.SharePct)).ToList();
 
         var model = new CustomersIndexViewModel(
             result.TotalExposure,
@@ -42,6 +44,32 @@ public class CustomersController : ModuleControllerBase
 
         return View(model);
     }
+
+    /// <summary>Shows what one customer means for concentration: its share, its rank, and the book without it.</summary>
+    public async Task<IActionResult> Details(Guid id, CancellationToken ct)
+    {
+        var org = await CurrentOrganizationAsync(ct);
+        if (org is null) return View("NoOrganization");
+
+        var impact = CustomerConcentrationCalculator.Impact(await Customers(ct), id);
+        if (impact is null) return NotFound();
+
+        return View(new CustomerDetailsViewModel(
+            impact.CustomerId,
+            impact.Name,
+            impact.Exposure,
+            impact.SharePct,
+            impact.Rank,
+            impact.CustomerCount,
+            impact.Hhi,
+            impact.HhiWithoutCustomer,
+            ModuleFormatting.Humanize(impact.BandWithoutCustomer.ToString()),
+            ToneFor(impact.BandWithoutCustomer)));
+    }
+
+    private async Task<IReadOnlyList<KeyedCustomerExposure>> Customers(CancellationToken ct) =>
+        await Entities<Customer>().SelectAsync(
+            c => new KeyedCustomerExposure(c.Id, c.Name, c.AnnualRevenueExposure), null, q => q.OrderBy(c => c.Name), ct);
 
     private static string ToneFor(ConcentrationBand band) => band switch
     {

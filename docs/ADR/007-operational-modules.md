@@ -1,7 +1,7 @@
-# ADR 007: Operational Modules Use Deterministic Calculators and Direct Context Access
+# ADR 007: Operational Modules Use Deterministic Calculators and Repository Access
 
 ## Status
-Accepted
+Accepted. Decision 3 is refined by ADR 008. Its consequences on feeds and reporting are updated by ADRs 008 to 010.
 
 ## Context
 Phase 3 adds twelve operational modules: Workforce, Finance, Operations, Technology, Markets, Assets,
@@ -19,12 +19,12 @@ spreadsheet applications can execute formulas embedded in cell text.
 2. **Entities guard their own invariants.** Constructors and methods reject invalid values through
    `DomainGuard`. For example, an alert can be acknowledged only while it is open, and a patch date
    cannot precede the recorded one.
-3. **Controllers use `AuroraDbContext` directly.** The module controllers inherit `ModuleControllerBase`,
-   which resolves the tenant, stages audit entries through `AuditRecorder`, and commits with one
-   `SaveChangesAsync`, so the change and its audit row commit together. The tenant query filter applies
-   to every read.
+3. **Controllers use the repository layer.** The module controllers inherit `ModuleControllerBase`, which
+   resolves the tenant, reads and stages entities through `Entities<T>()` (ADR 008), stages audit entries
+   through `AuditRecorder`, and commits with one `SaveChangesAsync`, so the change and its audit row commit
+   together. The tenant query filter applies to every read.
 4. **The executive report composes the calculators.** `ExecutiveReportBuilder` calls the same calculators
-   the module pages use, so the two cannot disagree. Customers and Reporting have no tables of their own.
+   the module pages use, so the two cannot disagree. Customers has no tables of its own. Reporting records each export run in its own table.
 5. **CSV export guards formulas.** Fields that begin with `=`, `+`, `-`, `@`, tab, or carriage return
    are prefixed with an apostrophe. A spreadsheet then reads them as text, so an exported value cannot
    run a formula. The guard also changes negative numbers, which appear as `'-5.00`. The report page
@@ -32,9 +32,10 @@ spreadsheet applications can execute formulas embedded in cell text.
 
 ## Consequences
 - Module boundaries are enforced by project references and by the calculators' lack of I/O. Controllers
-  reaching into `AuroraDbContext` is a deliberate departure from a strict controller-to-service layering.
-  Adding repositories later would be a non-breaking refactor, because the calculators are unchanged.
-- Customers and Reporting do not persist. Figures in those pages come from other modules' tables.
-- Monitoring readings are entered by hand. There is no sensor or feed ingestion, so the monitoring
-  alerts reflect only the values that users record.
+  depend on the repository layer rather than on a service layer, which keeps the controllers thin.
+  The repositories were added without changing the calculators.
+- Customers does not persist. Its figures come from the digital twin's tables. Reporting persists only
+  the run history of each export.
+- Monitoring readings come from manual entry or from the fixture feed (ADR 009). No live feed has been
+  exercised, so the monitoring alerts reflect the values that are recorded.
 - The formula guard trades exact negative-number display in the CSV for safe spreadsheet opening.

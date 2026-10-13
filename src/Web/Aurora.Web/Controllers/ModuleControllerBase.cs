@@ -2,7 +2,9 @@ using System.Security.Claims;
 using Aurora.Modules.Audit.Application;
 using Aurora.Modules.Audit.Domain;
 using Aurora.Modules.Organizations.Domain;
+using Aurora.Shared.Kernel;
 using Aurora.Web.Data;
+using Aurora.Web.Data.Repositories;
 using Aurora.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,6 +31,9 @@ public abstract class ModuleControllerBase : Controller
     protected AuditRecorder Audit { get; }
 
     protected TimeProvider Clock { get; }
+
+    /// <summary>Repository for one entity type over the request's tenant-filtered context.</summary>
+    protected IRepository<TEntity> Entities<TEntity>() where TEntity : Entity => new EfRepository<TEntity>(Db);
 
     protected Task<Organization?> CurrentOrganizationAsync(CancellationToken ct) => Organizations.GetCurrentAsync(ct);
 

@@ -5,12 +5,12 @@ using Aurora.Modules.SupplyChain.Domain;
 using Aurora.Web.Data;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Modules;
+using Aurora.Web.Validation;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using FluentValidation;
-using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Inventory cover and reorder points, plus supplier capacity stretch (spec section 26).</summary>
@@ -33,16 +33,16 @@ public class SupplyChainController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.SupplyChainManage)]
-    public async Task<IActionResult> Create(InventoryPositionForm form, [FromServices] IValidator<InventoryPositionForm> validator, CancellationToken ct)
+    public async Task<IActionResult> Create([Bind(Prefix = nameof(SupplyChainIndexViewModel.Form))] InventoryPositionForm form, [FromServices] IValidator<InventoryPositionForm> validator, CancellationToken ct)
     {
-        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct, nameof(SupplyChainIndexViewModel.Form));
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, ct));
 
         var position = new InventoryPosition(org.Id, form.Sku, form.Location, form.OnHandUnits, form.AverageDailyDemand,
             form.ReplenishmentLeadTimeDays, form.SafetyStockUnits);
-        Db.InventoryPositions.Add(position);
+        Entities<InventoryPosition>().Add(position);
         RecordAudit(org, AuditActions.SupplyPositionRecorded, nameof(InventoryPosition), position.Id.ToString());
         await Db.SaveChangesAsync(ct);
 
@@ -52,7 +52,7 @@ public class SupplyChainController : ModuleControllerBase
 
     private async Task<SupplyChainIndexViewModel> BuildIndexAsync(InventoryPositionForm form, CancellationToken ct)
     {
-        var positions = await Db.InventoryPositions.AsNoTracking().OrderBy(p => p.Sku).ThenBy(p => p.Location).ToListAsync(ct);
+        var positions = await Entities<InventoryPosition>().ListAsync(null, q => q.OrderBy(p => p.Sku).ThenBy(p => p.Location), ct);
         var rows = positions.Select(p =>
         {
             var coverage = SupplyCoverageCalculator.Evaluate(p.OnHandUnits, p.AverageDailyDemand, p.ReplenishmentLeadTimeDays, p.SafetyStockUnits);
@@ -69,9 +69,8 @@ public class SupplyChainController : ModuleControllerBase
                 ToneFor(coverage.State));
         }).ToList();
 
-        var suppliers = await Db.Suppliers.AsNoTracking()
-            .Select(s => new StretchedSupplierRow(s.Name, s.Location, s.CapacityUtilizationPct))
-            .ToListAsync(ct);
+        var suppliers = await Entities<Supplier>().SelectAsync(
+            s => new StretchedSupplierRow(s.Name, s.Location, s.CapacityUtilizationPct), null, null, ct);
         var stretched = suppliers
             .Where(s => SupplierCapacityRule.IsStretched(s.UtilizationPct))
             .OrderByDescending(s => s.UtilizationPct)

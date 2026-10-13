@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Aurora.Modules.Audit.Application;
 using Aurora.Modules.Audit.Domain;
 using Aurora.Modules.Graph.Application;
@@ -6,10 +7,9 @@ using Aurora.Modules.Scenarios.Contracts;
 using Aurora.Modules.Simulation.Application;
 using Aurora.Modules.Simulation.Contracts;
 using Aurora.Modules.Simulation.Domain;
+using Aurora.Shared.Observability;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Simulation;
-using System.Diagnostics;
-using Aurora.Shared.Observability;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

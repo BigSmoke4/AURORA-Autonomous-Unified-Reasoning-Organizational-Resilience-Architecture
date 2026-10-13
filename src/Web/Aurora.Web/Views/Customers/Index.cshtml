@@ -20,7 +20,7 @@
         @foreach (var row in Model.Rows)
         {
             <tr>
-                <td>@row.Name</td>
+                <td><a asp-action="Details" asp-route-id="@row.CustomerId">@row.Name</a></td>
                 <td>@ModuleFormatting.Money(row.Exposure)</td>
                 <td>@ModuleFormatting.Percent(row.SharePct)</td>
             </tr>

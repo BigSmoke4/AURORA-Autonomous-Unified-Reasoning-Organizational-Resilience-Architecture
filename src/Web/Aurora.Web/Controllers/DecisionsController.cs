@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Aurora.Modules.AI.Domain;
 using Aurora.Modules.Analysis.Contracts;
 using Aurora.Modules.Analysis.Domain;
 using Aurora.Modules.Audit.Application;
@@ -8,14 +9,16 @@ using Aurora.Modules.Decisions.Contracts;
 using Aurora.Modules.Decisions.Domain;
 using Aurora.Modules.Identity.Domain;
 using Aurora.Modules.Simulation.Application;
+using Aurora.Web.Data;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Analysis;
 using Aurora.Web.Models.Decisions;
+using Aurora.Web.Services;
+using Aurora.Web.Validation;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-using FluentValidation;
-using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>
@@ -59,7 +62,7 @@ public class DecisionsController : Controller
     }
 
     [Authorize(Policy = AuroraPermissions.DecisionRead)]
-    public async Task<IActionResult> Details(Guid id, CancellationToken ct)
+    public async Task<IActionResult> Details(Guid id, [FromServices] DecisionDebateService debates, CancellationToken ct)
     {
         var org = await _orgAccessor.GetCurrentAsync(ct);
         if (org is null) return NotFound();
@@ -70,11 +73,15 @@ public class DecisionsController : Controller
         var isProposer = _orgAccessor.GetCurrentUserId() == decision.ProposedByUserId;
         var canApprove = await Can(AuroraPermissions.DecisionApprove);
         var canExecute = await Can(AuroraPermissions.DecisionExecute);
+        var latestDebate = await debates.LatestAsync(decision.Id, ct);
 
         return View(new DecisionDetailsViewModel
         {
             Decision = decision,
             Factors = ReadFactors(decision.ScoringFactorsJson),
+            CanDebate = await Can(AuroraPermissions.AiInvestigate),
+            Debate = latestDebate?.Session,
+            DebateArguments = latestDebate?.Arguments ?? Array.Empty<DebateArgument>(),
             CanDecide = canApprove && !isProposer && decision.ApprovalState == DecisionApprovalState.PendingApproval,
             CanStartExecution = canExecute
                 && decision.ApprovalState == DecisionApprovalState.Approved
@@ -83,6 +90,25 @@ public class DecisionsController : Controller
                 && decision.ApprovalState == DecisionApprovalState.Approved
                 && decision.ExecutionState != DecisionExecutionState.Executed,
         });
+    }
+
+    /// <summary>Runs the deterministic debate on a decision and keeps the run. It informs the approver and changes no state.</summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = AuroraPermissions.AiInvestigate)]
+    public async Task<IActionResult> Debate(Guid id, [FromServices] DecisionDebateService debates, [FromServices] AuroraDbContext db, CancellationToken ct)
+    {
+        var org = await _orgAccessor.GetCurrentAsync(ct);
+        if (org is null) return NotFound();
+
+        var decision = await _decisions.GetByIdAsync(org.Id, id, ct);
+        if (decision is null) return NotFound();
+
+        var session = await debates.RunAsync(org.Id, decision, ct);
+        _audit.Record(org.Id, _orgAccessor.GetCurrentUserId(), User.ActorName(), AuditActions.DecisionDebated,
+            nameof(DebateSession), session.Id.ToString(), AuditOutcome.Success, session.Verdict);
+        await db.SaveChangesAsync(ct);
+        return RedirectToAction(nameof(Details), new { id });
     }
 
     [HttpPost]

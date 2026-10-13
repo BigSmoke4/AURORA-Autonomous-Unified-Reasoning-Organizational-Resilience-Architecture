@@ -33,4 +33,5 @@ public sealed record MonitoringIndexViewModel(
     IReadOnlyList<MetricRow> Rows,
     IReadOnlyList<SelectListItem> Metrics,
     MetricDefinitionForm DefinitionForm,
-    MetricReadingForm ReadingForm);
+    MetricReadingForm ReadingForm,
+    IReadOnlyList<BackgroundJobRow> Jobs);

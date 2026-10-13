@@ -5,12 +5,12 @@ using Aurora.Modules.Identity.Domain;
 using Aurora.Web.Data;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Modules;
+using Aurora.Web.Validation;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using FluentValidation;
-using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Straight-line depreciation and net book value for physical assets (spec section 24).</summary>
@@ -33,15 +33,15 @@ public class AssetsController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.AssetsManage)]
-    public async Task<IActionResult> Create(PhysicalAssetForm form, [FromServices] IValidator<PhysicalAssetForm> validator, CancellationToken ct)
+    public async Task<IActionResult> Create([Bind(Prefix = nameof(AssetsIndexViewModel.Form))] PhysicalAssetForm form, [FromServices] IValidator<PhysicalAssetForm> validator, CancellationToken ct)
     {
-        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct, nameof(AssetsIndexViewModel.Form));
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, ct));
 
         var asset = new PhysicalAsset(org.Id, form.Name, form.Category, form.AcquisitionCost, form.ResidualValue, form.InServiceOn, form.UsefulLifeYears);
-        Db.PhysicalAssets.Add(asset);
+        Entities<PhysicalAsset>().Add(asset);
         RecordAudit(org, AuditActions.AssetRegistered, nameof(PhysicalAsset), asset.Id.ToString());
         await Db.SaveChangesAsync(ct);
 
@@ -51,7 +51,7 @@ public class AssetsController : ModuleControllerBase
 
     private async Task<AssetsIndexViewModel> BuildIndexAsync(PhysicalAssetForm form, CancellationToken ct)
     {
-        var assets = await Db.PhysicalAssets.AsNoTracking().OrderBy(a => a.Name).ToListAsync(ct);
+        var assets = await Entities<PhysicalAsset>().ListAsync(null, q => q.OrderBy(a => a.Name), ct);
         var now = TodayUtc();
 
         var rows = assets.Select(a =>

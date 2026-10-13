@@ -38,6 +38,43 @@
         </tbody>
     </table>
 
+    <h2>Deterministic debate</h2>
+    <p class="aurora-note">An advocate and a critic check this decision's recorded figures against fixed rules. A judge counts the points on each side. No model produces any figure or verdict here.</p>
+    @if (Model.CanDebate)
+    {
+        <form asp-controller="Decisions" asp-action="Debate" asp-route-id="@d.Id" method="post" class="aurora-inline-form">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="aurora-btn aurora-btn--ghost">Run debate</button>
+        </form>
+    }
+    @if (Model.Debate is { } debate)
+    {
+        <dl class="aurora-definition-list">
+            <dt>Verdict</dt><dd>@debate.Verdict</dd>
+            <dt>Advocate points</dt><dd>@debate.AdvocatePoints</dd>
+            <dt>Critic points</dt><dd>@debate.CriticPoints</dd>
+            <dt>Run at (UTC)</dt><dd>@ModuleFormatting.Date(debate.StartedAtUtc) @debate.StartedAtUtc.ToString("HH:mm")</dd>
+            <dt>Rationale</dt><dd>@debate.VerdictRationale</dd>
+        </dl>
+        <table class="aurora-table">
+            <thead><tr><th>Role</th><th>Supports approval</th><th>Claim</th></tr></thead>
+            <tbody>
+            @foreach (var argument in Model.DebateArguments)
+            {
+                <tr>
+                    <td>@argument.Role</td>
+                    <td>@(argument.Supports ? "Yes" : "No")</td>
+                    <td>@argument.Claim</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p class="aurora-table__empty">No debate has been run on this decision.</p>
+    }
+
     @if (Model.CanDecide)
     {
         <div class="aurora-action-row">

@@ -14,6 +14,8 @@ using Aurora.Modules.Markets.Domain;
 using Aurora.Modules.Monitoring.Domain;
 using Aurora.Modules.Operations.Domain;
 using Aurora.Modules.Organizations.Domain;
+using Aurora.Modules.Reporting.Domain;
+using Aurora.Web.Data.Jobs;
 using Aurora.Modules.Risk.Domain;
 using Aurora.Modules.Scenarios.Domain;
 using Aurora.Modules.Simulation.Domain;
@@ -109,6 +111,20 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
     // Transactional outbox for domain events (see Data/Outbox and Infrastructure/Events).
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
+    public DbSet<ExecutiveReportRun> ExecutiveReportRuns => Set<ExecutiveReportRun>();
+
+    public DbSet<GraphSnapshotRecord> GraphSnapshotRecords => Set<GraphSnapshotRecord>();
+
+    public DbSet<KnowledgeDocument> KnowledgeDocuments => Set<KnowledgeDocument>();
+
+    public DbSet<DocumentChunk> DocumentChunks => Set<DocumentChunk>();
+
+    public DbSet<DebateSession> DebateSessions => Set<DebateSession>();
+
+    public DbSet<DebateArgument> DebateArguments => Set<DebateArgument>();
+
+    public DbSet<BackgroundJob> BackgroundJobs => Set<BackgroundJob>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -135,6 +151,11 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
         builder.ApplyConfigurationsFromAssembly(typeof(Alert).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(InventoryPosition).Assembly);
         builder.ApplyConfiguration(new OutboxMessageConfiguration());
+        builder.ApplyConfigurationsFromAssembly(typeof(ExecutiveReportRun).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(GraphSnapshotRecord).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(KnowledgeDocument).Assembly);
+        builder.ApplyConfigurationsFromAssembly(typeof(DebateSession).Assembly);
+        builder.ApplyConfiguration(new BackgroundJobConfiguration());
 
         // Identity tables get an "Aurora" prefix so they're visually grouped in the schema.
         builder.Entity<ApplicationUser>().ToTable("AuroraUsers");

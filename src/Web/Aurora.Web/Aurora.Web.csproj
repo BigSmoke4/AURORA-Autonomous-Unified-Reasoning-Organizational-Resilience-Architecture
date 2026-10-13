@@ -25,6 +25,10 @@
     <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.19.0" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The fixture feed adapter reads this file from the content root, in development and in the published image. -->
+    <Content Include="Data\Feeds\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\Shared\Aurora.Shared\Aurora.Shared.csproj" />
     <ProjectReference Include="..\..\Modules\Aurora.Modules.Identity\Aurora.Modules.Identity.csproj" />
     <ProjectReference Include="..\..\Modules\Aurora.Modules.Organizations\Aurora.Modules.Organizations.csproj" />

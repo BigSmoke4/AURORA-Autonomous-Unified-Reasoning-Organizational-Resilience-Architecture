@@ -2,15 +2,15 @@ using Aurora.Modules.Audit.Application;
 using Aurora.Modules.Audit.Contracts;
 using Aurora.Modules.Audit.Domain;
 using Aurora.Modules.Identity.Domain;
+using Aurora.Web.Infrastructure;
+using Aurora.Web.Models.Account;
+using Aurora.Web.Validation;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Aurora.Web.Infrastructure;
-using Aurora.Web.Models.Account;
 using Microsoft.AspNetCore.RateLimiting;
 
-using FluentValidation;
-using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 public class AccountController : Controller

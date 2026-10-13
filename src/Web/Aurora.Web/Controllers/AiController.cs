@@ -1,16 +1,16 @@
+using System.Diagnostics;
 using Aurora.Modules.AI.Application;
+using Aurora.Modules.AI.Contracts;
 using Aurora.Modules.AI.Domain;
 using Aurora.Modules.Audit.Application;
 using Aurora.Modules.Audit.Domain;
-using System.Diagnostics;
-using Aurora.Modules.AI.Contracts;
+using Aurora.Modules.Identity.Domain;
 using Aurora.Shared.Observability;
+using Aurora.Web.Infrastructure;
 using Aurora.Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Aurora.Modules.Identity.Domain;
-using Aurora.Web.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace Aurora.Web.Controllers;

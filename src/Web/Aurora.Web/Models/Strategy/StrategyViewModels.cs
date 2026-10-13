@@ -1,3 +1,4 @@
+using Aurora.Modules.Graph.Domain;
 using Aurora.Modules.Scenarios.Domain;
 
 namespace Aurora.Web.Models.Strategy;
@@ -7,6 +8,7 @@ public sealed class StrategyIndexViewModel
     public IReadOnlyList<Scenario> Scenarios { get; init; } = Array.Empty<Scenario>();
     public CounterfactualForm Counterfactual { get; set; } = new();
     public OptimizationForm Optimization { get; set; } = new();
+    public IReadOnlyList<GraphSnapshotRecord> GraphSnapshots { get; init; } = Array.Empty<GraphSnapshotRecord>();
 }
 
 public sealed class CounterfactualForm
@@ -15,6 +17,9 @@ public sealed class CounterfactualForm
 
     /// <summary>Share of the target's downstream dependence moved to alternate sources, in percent.</summary>
     public int MitigationSharePct { get; set; } = 50;
+
+    /// <summary>A captured graph to run against. Null runs against the live graph.</summary>
+    public Guid? GraphSnapshotId { get; set; }
 }
 
 public sealed class OptimizationForm

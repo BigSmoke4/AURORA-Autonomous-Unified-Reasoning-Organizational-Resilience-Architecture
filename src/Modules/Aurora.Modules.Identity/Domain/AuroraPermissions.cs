@@ -44,6 +44,8 @@ public static class AuroraPermissions
     public const string AlertsAcknowledge = "Alerts.Acknowledge";
     public const string SupplyChainRead = "SupplyChain.Read";
     public const string SupplyChainManage = "SupplyChain.Manage";
+    public const string KnowledgeRead = "Knowledge.Read";
+    public const string KnowledgeManage = "Knowledge.Manage";
 
     /// <summary>Every permission AURORA authorizes, used to register one policy per permission.</summary>
     public static readonly IReadOnlyList<string> All = new[]
@@ -54,7 +56,7 @@ public static class AuroraPermissions
         WorkforceRead, WorkforceManage, FinanceRead, FinanceManage, OperationsRead, OperationsManage,
         TechnologyRead, TechnologyManage, CustomersRead, MarketsRead, MarketsManage, AssetsRead, AssetsManage,
         ContractsRead, ContractsManage, MonitoringRead, MonitoringManage, AlertsRead, AlertsAcknowledge,
-        SupplyChainRead, SupplyChainManage
+        SupplyChainRead, SupplyChainManage, KnowledgeRead, KnowledgeManage
     };
 
     /// <summary>Default permission grants per role. Seeded on startup; editable later via an
@@ -62,16 +64,16 @@ public static class AuroraPermissions
     public static readonly IReadOnlyDictionary<string, string[]> DefaultRolePermissions = new Dictionary<string, string[]>
     {
         [AuroraRoles.SystemAdministrator] = All.ToArray(),
-        [AuroraRoles.Executive] = new[] { GraphRead, ScenarioRead, SimulationRead, DecisionRead, DecisionApprove, OptimizationApprove, ReportsRead, WorkforceRead, FinanceRead, OperationsRead, TechnologyRead, CustomersRead, MarketsRead, AssetsRead, ContractsRead, MonitoringRead, AlertsRead, SupplyChainRead },
-        [AuroraRoles.StrategyAnalyst] = new[] { GraphRead, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, SimulationRun, OptimizationRun, ForecastRun, DecisionRead, DecisionPropose, ReportsRead, FinanceRead, OperationsRead, CustomersRead, MarketsRead, MarketsManage },
+        [AuroraRoles.Executive] = new[] { GraphRead, ScenarioRead, SimulationRead, DecisionRead, DecisionApprove, OptimizationApprove, ReportsRead, WorkforceRead, FinanceRead, OperationsRead, TechnologyRead, CustomersRead, MarketsRead, AssetsRead, ContractsRead, MonitoringRead, AlertsRead, SupplyChainRead, KnowledgeRead },
+        [AuroraRoles.StrategyAnalyst] = new[] { GraphRead, GraphWrite, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, SimulationRun, OptimizationRun, ForecastRun, DecisionRead, DecisionPropose, ReportsRead, FinanceRead, OperationsRead, CustomersRead, MarketsRead, MarketsManage, KnowledgeRead, KnowledgeManage },
         [AuroraRoles.OperationsManager] = new[] { GraphRead, ScenarioRead, SimulationRead, ReportsRead, OperationsRead, OperationsManage, WorkforceRead, AssetsRead, AssetsManage, MonitoringRead, MonitoringManage, AlertsRead, AlertsAcknowledge, SupplyChainRead },
         [AuroraRoles.SupplyChainManager] = new[] { GraphRead, ScenarioRead, ScenarioCreate, SimulationRead, OptimizationRun, DecisionRead, DecisionPropose, ReportsRead, SupplyChainRead, SupplyChainManage, ContractsRead, ContractsManage, MarketsRead, OperationsRead },
         [AuroraRoles.FinanceManager] = new[] { GraphRead, ScenarioRead, SimulationRead, ForecastRun, DecisionRead, ReportsRead, FinanceRead, FinanceManage, ContractsRead, AssetsRead, CustomersRead },
         [AuroraRoles.RiskManager] = new[] { GraphRead, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, DecisionRead, DecisionPropose, ReportsRead, AlertsRead, AlertsAcknowledge, MonitoringRead, ContractsRead, CustomersRead, SupplyChainRead },
         [AuroraRoles.TechnologyManager] = new[] { GraphRead, ScenarioRead, SimulationRead, ReportsRead, TechnologyRead, TechnologyManage, MonitoringRead, MonitoringManage, AlertsRead, AlertsAcknowledge, AssetsRead },
-        [AuroraRoles.AiSupervisor] = new[] { GraphRead, ScenarioRead, SimulationRead, AiInvestigate, ReportsRead, AlertsRead },
+        [AuroraRoles.AiSupervisor] = new[] { GraphRead, ScenarioRead, SimulationRead, AiInvestigate, ReportsRead, AlertsRead, KnowledgeRead, KnowledgeManage },
         [AuroraRoles.DecisionApprover] = new[] { GraphRead, ScenarioRead, SimulationRead, DecisionRead, DecisionApprove, DecisionExecute, ReportsRead },
-        [AuroraRoles.Viewer] = new[] { GraphRead, ScenarioRead, SimulationRead, ReportsRead, WorkforceRead, FinanceRead, OperationsRead, TechnologyRead, CustomersRead, MarketsRead, AssetsRead, ContractsRead, MonitoringRead, AlertsRead, SupplyChainRead },
+        [AuroraRoles.Viewer] = new[] { GraphRead, ScenarioRead, SimulationRead, ReportsRead, WorkforceRead, FinanceRead, OperationsRead, TechnologyRead, CustomersRead, MarketsRead, AssetsRead, ContractsRead, MonitoringRead, AlertsRead, SupplyChainRead, KnowledgeRead },
     };
 }
 

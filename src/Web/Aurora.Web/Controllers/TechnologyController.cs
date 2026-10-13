@@ -5,13 +5,13 @@ using Aurora.Modules.Technology.Domain;
 using Aurora.Web.Data;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Modules;
+using Aurora.Web.Validation;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-using FluentValidation;
-using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Patch compliance for each technology asset against its service-level window (spec section 22).</summary>
@@ -36,18 +36,18 @@ public class TechnologyController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.TechnologyManage)]
-    public async Task<IActionResult> Create(PatchPolicyForm form, [FromServices] IValidator<PatchPolicyForm> validator, CancellationToken ct)
+    public async Task<IActionResult> Create([Bind(Prefix = nameof(TechnologyIndexViewModel.Form))] PatchPolicyForm form, [FromServices] IValidator<PatchPolicyForm> validator, CancellationToken ct)
     {
-        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct, nameof(TechnologyIndexViewModel.Form));
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
 
         var assetId = form.TechnologyAssetId.GetValueOrDefault();
         if (assetId != Guid.Empty)
         {
-            if (!await Db.TechnologyAssets.AnyAsync(a => a.Id == assetId, ct))
+            if (!await Entities<TechnologyAsset>().AnyAsync(a => a.Id == assetId, ct))
                 ModelState.AddModelError(nameof(form.TechnologyAssetId), "The selected asset was not found.");
-            else if (await Db.TechnologyPatchPolicies.AnyAsync(p => p.TechnologyAssetId == assetId, ct))
+            else if (await Entities<PatchPolicy>().AnyAsync(p => p.TechnologyAssetId == assetId, ct))
                 ModelState.AddModelError(nameof(form.TechnologyAssetId), "This asset already has a patch policy. Record a patch against it instead.");
         }
 
@@ -56,7 +56,7 @@ public class TechnologyController : ModuleControllerBase
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, ct));
 
         var policy = new PatchPolicy(org.Id, assetId, form.LastPatchedOn, form.PatchSlaDays);
-        Db.TechnologyPatchPolicies.Add(policy);
+        Entities<PatchPolicy>().Add(policy);
         RecordAudit(org, AuditActions.TechnologyPatchPolicyCreated, nameof(PatchPolicy), policy.Id.ToString());
         await Db.SaveChangesAsync(ct);
 
@@ -85,7 +85,7 @@ public class TechnologyController : ModuleControllerBase
             return RedirectToAction(nameof(Index));
         }
 
-        var policy = await Db.TechnologyPatchPolicies.FirstOrDefaultAsync(p => p.Id == form.PatchPolicyId.GetValueOrDefault(), ct);
+        var policy = await Entities<PatchPolicy>().FirstOrDefaultAsync(p => p.Id == form.PatchPolicyId.GetValueOrDefault(), null, ct);
         if (policy is null) return NotFound();
 
         try
@@ -107,8 +107,8 @@ public class TechnologyController : ModuleControllerBase
 
     private async Task<TechnologyIndexViewModel> BuildIndexAsync(PatchPolicyForm form, CancellationToken ct)
     {
-        var assets = await Db.TechnologyAssets.AsNoTracking().OrderBy(a => a.Name).ToListAsync(ct);
-        var policies = await Db.TechnologyPatchPolicies.AsNoTracking().ToListAsync(ct);
+        var assets = await Entities<TechnologyAsset>().ListAsync(null, q => q.OrderBy(a => a.Name), ct);
+        var policies = await Entities<PatchPolicy>().ListAsync(null, null, ct);
         var policyByAsset = policies.ToDictionary(p => p.TechnologyAssetId);
         var now = TodayUtc();
 

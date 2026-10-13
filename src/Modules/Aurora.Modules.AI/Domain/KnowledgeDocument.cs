@@ -1,0 +1,28 @@
+using Aurora.Shared.Kernel;
+
+namespace Aurora.Modules.AI.Domain;
+
+/// <summary>An organizational document (policy, contract summary, incident report) indexed for retrieval.</summary>
+public class KnowledgeDocument : Entity, ITenantScoped
+{
+    public const int TitleMaxLength = 200;
+    public const int SourceNameMaxLength = 200;
+    public const int MaxBodyLength = 100_000;
+
+    public Guid OrganizationId { get; private set; }
+    public string Title { get; private set; } = string.Empty;
+    public string SourceName { get; private set; } = string.Empty;
+    public int ChunkCount { get; private set; }
+
+    protected KnowledgeDocument()
+    {
+    }
+
+    public KnowledgeDocument(Guid organizationId, string title, string sourceName, int chunkCount)
+    {
+        OrganizationId = DomainGuard.RequireId(organizationId, nameof(organizationId));
+        Title = DomainGuard.RequireText(title, TitleMaxLength, nameof(title));
+        SourceName = DomainGuard.RequireText(sourceName, SourceNameMaxLength, nameof(sourceName));
+        ChunkCount = DomainGuard.RequireRange(chunkCount, 1, int.MaxValue, nameof(chunkCount));
+    }
+}

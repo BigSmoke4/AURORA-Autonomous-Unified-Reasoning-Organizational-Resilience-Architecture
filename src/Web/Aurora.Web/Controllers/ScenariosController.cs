@@ -1,6 +1,7 @@
 using Aurora.Modules.Audit.Application;
 using Aurora.Modules.Audit.Domain;
 using Aurora.Modules.Graph.Application;
+using Aurora.Modules.Identity.Domain;
 using Aurora.Modules.Scenarios.Application;
 using Aurora.Modules.Scenarios.Contracts;
 using Aurora.Modules.Scenarios.Domain;
@@ -9,7 +10,6 @@ using Aurora.Web.Models.Scenarios;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Aurora.Modules.Identity.Domain;
 
 namespace Aurora.Web.Controllers;
 

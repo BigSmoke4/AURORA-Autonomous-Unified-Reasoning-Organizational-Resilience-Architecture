@@ -5,13 +5,13 @@ using Aurora.Modules.Operations.Domain;
 using Aurora.Web.Data;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Modules;
+using Aurora.Web.Validation;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-using FluentValidation;
-using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Plan attainment and first-pass yield per factory period (spec section 21).</summary>
@@ -37,19 +37,19 @@ public class OperationsController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.OperationsManage)]
-    public async Task<IActionResult> Create(ProductionRecordForm form, [FromServices] IValidator<ProductionRecordForm> validator, CancellationToken ct)
+    public async Task<IActionResult> Create([Bind(Prefix = nameof(OperationsIndexViewModel.Form))] ProductionRecordForm form, [FromServices] IValidator<ProductionRecordForm> validator, CancellationToken ct)
     {
-        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct, nameof(OperationsIndexViewModel.Form));
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
 
         var factoryId = form.FactoryId.GetValueOrDefault();
-        if (factoryId != Guid.Empty && !await Db.Factories.AnyAsync(f => f.Id == factoryId, ct))
+        if (factoryId != Guid.Empty && !await Entities<Factory>().AnyAsync(f => f.Id == factoryId, ct))
             ModelState.AddModelError(nameof(form.FactoryId), "The selected factory was not found.");
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, ct));
 
         var record = new ProductionRecord(org.Id, factoryId, form.PeriodStart, form.PlannedUnits, form.ActualUnits, form.DefectiveUnits);
-        Db.ProductionRecords.Add(record);
+        Entities<ProductionRecord>().Add(record);
         RecordAudit(org, AuditActions.OperationsProductionRecorded, nameof(ProductionRecord), record.Id.ToString());
         await Db.SaveChangesAsync(ct);
 
@@ -59,13 +59,10 @@ public class OperationsController : ModuleControllerBase
 
     private async Task<OperationsIndexViewModel> BuildIndexAsync(ProductionRecordForm form, CancellationToken ct)
     {
-        var factories = await Db.Factories.AsNoTracking().OrderBy(f => f.Name).Select(f => new { f.Id, f.Name }).ToListAsync(ct);
+        var factories = await Entities<Factory>().SelectAsync(f => new { f.Id, f.Name }, null, q => q.OrderBy(f => f.Name), ct);
         var factoryNames = factories.ToDictionary(f => f.Id, f => f.Name);
 
-        var records = await Db.ProductionRecords.AsNoTracking()
-            .OrderByDescending(r => r.PeriodStartUtc)
-            .Take(RecentRecordLimit)
-            .ToListAsync(ct);
+        var records = await Entities<ProductionRecord>().ListAsync(null, q => q.OrderByDescending(r => r.PeriodStartUtc), ct, RecentRecordLimit);
 
         var rows = records.Select(r =>
         {

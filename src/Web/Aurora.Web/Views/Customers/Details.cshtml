@@ -1,0 +1,16 @@
+@model Aurora.Web.Models.Modules.CustomerDetailsViewModel
+@{ ViewData["Title"] = Model.Name; }
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h1>@Model.Name</h1></div>
+    <p class="aurora-note">What this customer contributes to concentration. Removing the customer from the book shows how the index and its band would change. These are descriptive figures from the digital twin, not a forecast of loss.</p>
+    <div class="aurora-metrics-strip">
+        <div class="aurora-metric"><span class="aurora-metric__label">Revenue exposure</span><span class="aurora-metric__value">@ModuleFormatting.Money(Model.Exposure)</span></div>
+        <div class="aurora-metric"><span class="aurora-metric__label">Share of book</span><span class="aurora-metric__value">@ModuleFormatting.Percent(Model.SharePct)</span></div>
+        <div class="aurora-metric"><span class="aurora-metric__label">Rank</span><span class="aurora-metric__value">@Model.Rank of @Model.CustomerCount</span></div>
+        <div class="aurora-metric"><span class="aurora-metric__label">HHI</span><span class="aurora-metric__value">@ModuleFormatting.Number(Model.Hhi)</span></div>
+        <div class="aurora-metric"><span class="aurora-metric__label">HHI without this customer</span><span class="aurora-metric__value">@ModuleFormatting.Number(Model.HhiWithoutCustomer)</span></div>
+    </div>
+    <p><span class="aurora-status-pill aurora-status-pill--@Model.Tone">@Model.BandWithoutCustomer without this customer</span></p>
+    <p><a asp-action="Index">&larr; All customers</a></p>
+</section>

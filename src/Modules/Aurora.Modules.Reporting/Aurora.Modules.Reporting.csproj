@@ -6,6 +6,8 @@
     <RootNamespace>Aurora.Modules.Reporting</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
     <ProjectReference Include="..\..\Shared\Aurora.Shared\Aurora.Shared.csproj" />
   </ItemGroup>
 </Project>

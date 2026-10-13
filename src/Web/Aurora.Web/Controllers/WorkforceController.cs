@@ -5,12 +5,12 @@ using Aurora.Modules.Workforce.Domain;
 using Aurora.Web.Data;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Modules;
+using Aurora.Web.Validation;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-using FluentValidation;
-using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Critical-role headcount coverage measured against the digital-twin employee roster (spec section 19).</summary>
@@ -33,15 +33,15 @@ public class WorkforceController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.WorkforceManage)]
-    public async Task<IActionResult> Create(WorkforceRoleForm form, [FromServices] IValidator<WorkforceRoleForm> validator, CancellationToken ct)
+    public async Task<IActionResult> Create([Bind(Prefix = nameof(WorkforceIndexViewModel.Form))] WorkforceRoleForm form, [FromServices] IValidator<WorkforceRoleForm> validator, CancellationToken ct)
     {
-        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct, nameof(WorkforceIndexViewModel.Form));
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, ct));
 
         var role = new CriticalRole(org.Id, form.Name, form.RoleTitle, form.RequiredHeadcount, form.Criticality);
-        Db.CriticalRoles.Add(role);
+        Entities<CriticalRole>().Add(role);
         RecordAudit(org, AuditActions.WorkforceRoleCreated, nameof(CriticalRole), role.Id.ToString());
         await Db.SaveChangesAsync(ct);
 
@@ -51,12 +51,11 @@ public class WorkforceController : ModuleControllerBase
 
     private async Task<WorkforceIndexViewModel> BuildIndexAsync(WorkforceRoleForm form, CancellationToken ct)
     {
-        var roles = await Db.CriticalRoles.AsNoTracking().OrderBy(r => r.Name).ToListAsync(ct);
-        var headcountByRole = (await Db.Employees.AsNoTracking()
-                .GroupBy(e => e.Role)
-                .Select(g => new { Role = g.Key, Count = g.Count() })
-                .ToListAsync(ct))
-            .ToDictionary(x => x.Role, x => x.Count, StringComparer.Ordinal);
+        var roles = await Entities<CriticalRole>().ListAsync(null, q => q.OrderBy(r => r.Name), ct);
+        var roleOfEachEmployee = await Entities<Employee>().SelectAsync(e => e.Role, null, null, ct);
+        var headcountByRole = roleOfEachEmployee
+            .GroupBy(role => role, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
 
         var rows = roles.Select(role =>
         {

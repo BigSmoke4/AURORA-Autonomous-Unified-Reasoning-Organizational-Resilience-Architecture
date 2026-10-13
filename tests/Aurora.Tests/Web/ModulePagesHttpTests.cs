@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using Aurora.Modules.DigitalTwin.Domain;
 using Aurora.Modules.Identity.Domain;
 using Aurora.Modules.Organizations.Domain;
 using Aurora.Shared.Kernel;
@@ -38,6 +39,16 @@ public sealed class ModulePagesHttpTests : IClassFixture<WebApplicationFactory<P
     private const string CsvByteOrderMark = "\uFEFF";
     private const string NewRoleName = "HTTP Test Role";
     private const string NewRoleTitle = "HTTP Test Title";
+    private const string NewAssetName = "HTTP Test Application";
+    private const int NewAssetCriticality = 3;
+    private const string FinancePath = "/Finance";
+    private const string OperationsPath = "/Operations";
+    private const string TechnologyPath = "/Technology";
+    private const string MarketsPath = "/Markets";
+    private const string AssetsPath = "/Assets";
+    private const string ContractsPath = "/Contracts";
+    private const string MonitoringPath = "/Monitoring";
+    private const string SupplyChainPath = "/SupplyChain";
 
     // Secure auth cookies are only sent back over HTTPS, so the test client uses an https base address.
     private const string BaseAddress = "https://localhost";
@@ -163,10 +174,10 @@ public sealed class ModulePagesHttpTests : IClassFixture<WebApplicationFactory<P
 
         var response = await administrator.PostAsync("/Workforce/Create", Form(new Dictionary<string, string>
         {
-            ["Name"] = NewRoleName,
-            ["RoleTitle"] = NewRoleTitle,
-            ["RequiredHeadcount"] = "1",
-            ["Criticality"] = "3",
+            ["Form.Name"] = NewRoleName,
+            ["Form.RoleTitle"] = NewRoleTitle,
+            ["Form.RequiredHeadcount"] = "1",
+            ["Form.Criticality"] = "3",
             [AntiforgeryField] = token,
         }));
 
@@ -193,6 +204,177 @@ public sealed class ModulePagesHttpTests : IClassFixture<WebApplicationFactory<P
         Assert.StartsWith(CsvHeader, csv, StringComparison.Ordinal);
         Assert.Contains("Plant operations continuity", csv, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task CostCenterForm_SavesACostCenter()
+    {
+        await AssertFormSavesRecordAsync(FinancePath, "Create", db => db.CostCenters, new Dictionary<string, string>
+        {
+            ["Form.Code"] = "HTTP-CC-01",
+            ["Form.Name"] = "HTTP Test Cost Centre",
+            ["Form.AnnualBudget"] = "1000",
+            ["Form.ActualSpend"] = "250",
+        });
+    }
+
+    [Fact]
+    public async Task ProductionRecordForm_SavesAProductionRecord()
+    {
+        var factoryId = await QueryDemoAsync((db, organizationId) => db.Factories.IgnoreQueryFilters()
+            .Where(f => f.OrganizationId == organizationId).Select(f => f.Id).FirstAsync());
+
+        await AssertFormSavesRecordAsync(OperationsPath, "Create", db => db.ProductionRecords, new Dictionary<string, string>
+        {
+            ["Form.FactoryId"] = factoryId.ToString(),
+            ["Form.PeriodStart"] = "2026-09-01",
+            ["Form.PlannedUnits"] = "100",
+            ["Form.ActualUnits"] = "95",
+            ["Form.DefectiveUnits"] = "2",
+        });
+    }
+
+    [Fact]
+    public async Task PatchPolicyForm_SavesAPolicyForAnAssetWithoutOne()
+    {
+        var assetId = await AddTechnologyAssetAsync();
+
+        await AssertFormSavesRecordAsync(TechnologyPath, "Create", db => db.TechnologyPatchPolicies, new Dictionary<string, string>
+        {
+            ["Form.TechnologyAssetId"] = assetId.ToString(),
+            ["Form.LastPatchedOn"] = "2026-10-01",
+            ["Form.PatchSlaDays"] = "30",
+        });
+    }
+
+    [Fact]
+    public async Task MarketObservationForm_SavesAnObservation()
+    {
+        await AssertFormSavesRecordAsync(MarketsPath, "Create", db => db.MarketObservations, new Dictionary<string, string>
+        {
+            ["Form.Market"] = "HTTP Test Market",
+            ["Form.ObservedOn"] = "2026-10-01",
+            ["Form.DemandIndex"] = "100",
+            ["Form.PriceIndex"] = "100",
+        });
+    }
+
+    [Fact]
+    public async Task PhysicalAssetForm_SavesAnAsset()
+    {
+        await AssertFormSavesRecordAsync(AssetsPath, "Create", db => db.PhysicalAssets, new Dictionary<string, string>
+        {
+            ["Form.Name"] = "HTTP Test Machine",
+            ["Form.Category"] = "Machinery",
+            ["Form.AcquisitionCost"] = "5000",
+            ["Form.ResidualValue"] = "500",
+            ["Form.InServiceOn"] = "2026-01-01",
+            ["Form.UsefulLifeYears"] = "5",
+        });
+    }
+
+    [Fact]
+    public async Task SupplierContractForm_SavesAContract()
+    {
+        await AssertFormSavesRecordAsync(ContractsPath, "Create", db => db.SupplierContracts, new Dictionary<string, string>
+        {
+            ["Form.Reference"] = "HTTP-CT-01",
+            ["Form.Counterparty"] = "HTTP Counterparty",
+            ["Form.StartsOn"] = "2026-01-01",
+            ["Form.EndsOn"] = "2027-01-01",
+            ["Form.AnnualValue"] = "12000",
+            ["Form.LatePenaltyPerDay"] = "50",
+            ["Form.NoticePeriodDays"] = "30",
+        });
+    }
+
+    [Fact]
+    public async Task MetricDefinitionForm_SavesAMetric()
+    {
+        await AssertFormSavesRecordAsync(MonitoringPath, "CreateMetric", db => db.MetricDefinitions, new Dictionary<string, string>
+        {
+            ["DefinitionForm.Name"] = "HTTP Test Metric",
+            ["DefinitionForm.Unit"] = "units",
+            ["DefinitionForm.MinimumThreshold"] = "1",
+            ["DefinitionForm.MaximumThreshold"] = "10",
+        });
+    }
+
+    [Fact]
+    public async Task MetricReadingForm_SavesAReadingForAMetric()
+    {
+        var metricId = await QueryDemoAsync((db, organizationId) => db.MetricDefinitions.IgnoreQueryFilters()
+            .Where(d => d.OrganizationId == organizationId).Select(d => d.Id).FirstAsync());
+
+        await AssertFormSavesRecordAsync(MonitoringPath, "RecordReading", db => db.MetricReadings, new Dictionary<string, string>
+        {
+            ["ReadingForm.MetricDefinitionId"] = metricId.ToString(),
+            ["ReadingForm.Value"] = "14",
+            ["ReadingForm.RecordedOn"] = "2026-10-01",
+        });
+    }
+
+    [Fact]
+    public async Task InventoryPositionForm_SavesAPosition()
+    {
+        await AssertFormSavesRecordAsync(SupplyChainPath, "Create", db => db.InventoryPositions, new Dictionary<string, string>
+        {
+            ["Form.Sku"] = "HTTP-SKU-1",
+            ["Form.Location"] = "HTTP Warehouse",
+            ["Form.OnHandUnits"] = "100",
+            ["Form.AverageDailyDemand"] = "5",
+            ["Form.ReplenishmentLeadTimeDays"] = "7",
+            ["Form.SafetyStockUnits"] = "10",
+        });
+    }
+
+    /// <summary>
+    /// Signs in as the administrator, posts one create form with a fresh antiforgery token, and checks that the
+    /// request redirects back to its module page and that exactly one row was saved for the demo organization.
+    /// A form that fails to bind or validate re-renders with 200 and saves nothing, so both checks fail.
+    /// </summary>
+    private async Task AssertFormSavesRecordAsync<TEntity>(string modulePath, string action,
+        Func<AuroraDbContext, DbSet<TEntity>> set, Dictionary<string, string> fields) where TEntity : class, ITenantScoped
+    {
+        var before = await CountDemoRowsAsync(set);
+
+        using var administrator = await SignInAsync(AdministratorEmail);
+        fields[AntiforgeryField] = ReadAntiforgeryToken(await GetTextAsync(administrator, modulePath));
+        var response = await administrator.PostAsync($"{modulePath}/{action}", Form(fields));
+
+        Assert.True(response.StatusCode == HttpStatusCode.Redirect,
+            $"{modulePath}/{action} returned {(int)response.StatusCode}; the form was not accepted.");
+        Assert.Contains(modulePath, response.Headers.Location?.OriginalString ?? string.Empty);
+        Assert.Equal(before + 1, await CountDemoRowsAsync(set));
+    }
+
+    private async Task<int> CountDemoRowsAsync<TEntity>(Func<AuroraDbContext, DbSet<TEntity>> set) where TEntity : class, ITenantScoped
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuroraDbContext>();
+        var organizationId = await DemoOrganizationIdAsync(db);
+        return await set(db).IgnoreQueryFilters().CountAsync(e => e.OrganizationId == organizationId);
+    }
+
+    private async Task<T> QueryDemoAsync<T>(Func<AuroraDbContext, Guid, Task<T>> query)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuroraDbContext>();
+        return await query(db, await DemoOrganizationIdAsync(db));
+    }
+
+    private async Task<Guid> AddTechnologyAssetAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuroraDbContext>();
+        var organizationId = await DemoOrganizationIdAsync(db);
+        var asset = new TechnologyAsset(organizationId, NewAssetName, TechnologyAssetType.Application, NewAssetCriticality);
+        db.TechnologyAssets.Add(asset);
+        await db.SaveChangesAsync();
+        return asset.Id;
+    }
+
+    private static Task<Guid> DemoOrganizationIdAsync(AuroraDbContext db) =>
+        db.Organizations.AsNoTracking().Where(o => o.Name == DemoOrganizationName).Select(o => o.Id).SingleAsync();
 
     private HttpClient CreateClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions
     {

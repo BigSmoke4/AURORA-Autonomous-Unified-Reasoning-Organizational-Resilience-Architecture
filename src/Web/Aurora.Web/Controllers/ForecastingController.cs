@@ -9,11 +9,11 @@ using Aurora.Modules.Forecasting.Domain;
 using Aurora.Modules.Identity.Domain;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Forecasting;
+using Aurora.Web.Validation;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-using FluentValidation;
-using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Holt linear-trend forecasting over a user-supplied series (spec section 17).</summary>

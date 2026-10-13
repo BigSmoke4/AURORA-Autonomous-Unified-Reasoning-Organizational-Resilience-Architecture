@@ -21,6 +21,16 @@
                     </select>
                 </label>
                 <label class="aurora-form__label">
+                    Graph to run against
+                    <select asp-for="Counterfactual.GraphSnapshotId" class="aurora-form__input">
+                        <option value="">Live graph (current)</option>
+                        @foreach (var snapshot in Model.GraphSnapshots)
+                        {
+                            <option value="@snapshot.Id">Snapshot @ModuleFormatting.Date(snapshot.CapturedAtUtc) @snapshot.CapturedAtUtc.ToString("HH:mm") UTC, @snapshot.NodeCount nodes, @snapshot.EdgeCount edges</option>
+                        }
+                    </select>
+                </label>
+                <label class="aurora-form__label">
                     Dependence moved to alternate sources (%)
                     <input asp-for="Counterfactual.MitigationSharePct" type="number" min="0" max="100" class="aurora-form__input" />
                 </label>
@@ -54,4 +64,35 @@
             <button type="submit" class="aurora-btn aurora-btn--primary">Optimize allocation</button>
         </form>
     </div>
+</section>
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h2>Graph snapshots</h2></div>
+    <p class="aurora-note">A snapshot freezes the digital twin's graph at one moment. A counterfactual that selects a snapshot runs against the graph as it was then, so later changes to the graph do not alter its result.</p>
+    @if (User.HasClaim(Aurora.Modules.Identity.Domain.AuroraClaims.Permission, Aurora.Modules.Identity.Domain.AuroraPermissions.GraphWrite))
+    {
+        <form asp-controller="Strategy" asp-action="CaptureGraphSnapshot" method="post" class="aurora-form">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="aurora-btn aurora-btn--primary">Capture current graph</button>
+        </form>
+    }
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Captured</th><th>Nodes</th><th>Edges</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var snapshot in Model.GraphSnapshots)
+        {
+            <tr>
+                <td>@ModuleFormatting.Date(snapshot.CapturedAtUtc) @snapshot.CapturedAtUtc.ToString("HH:mm") UTC</td>
+                <td>@snapshot.NodeCount</td>
+                <td>@snapshot.EdgeCount</td>
+            </tr>
+        }
+        @if (!Model.GraphSnapshots.Any())
+        {
+            <tr><td colspan="3" class="aurora-table__empty">No graph snapshots have been captured yet.</td></tr>
+        }
+        </tbody>
+    </table>
 </section>
