@@ -5,6 +5,7 @@ using Aurora.Modules.Organizations.Domain;
 using Aurora.Shared.Kernel;
 using Aurora.Tests.Persistence;
 using Aurora.Web.Data;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
