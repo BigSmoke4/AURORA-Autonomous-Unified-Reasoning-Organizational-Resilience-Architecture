@@ -1,0 +1,14 @@
+name: probe-versions
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe NuGet versions
+        run: |
+          for id in Microsoft.EntityFrameworkCore.Design Npgsql.EntityFrameworkCore.PostgreSQL Microsoft.AspNetCore.Identity.EntityFrameworkCore Microsoft.AspNetCore.Identity.UI Serilog.AspNetCore Serilog.Settings.Configuration Serilog.Sinks.Console OpenTelemetry.Extensions.Hosting OpenTelemetry.Instrumentation.AspNetCore OpenTelemetry.Instrumentation.Http OpenTelemetry.Exporter.Console AspNetCore.HealthChecks.NpgSql FluentValidation.AspNetCore Microsoft.AspNetCore.Mvc.Testing Microsoft.NET.Test.Sdk xunit xunit.runner.visualstudio dotnet-ef Microsoft.AspNetCore.SignalR.Client OpenTelemetry.Instrumentation.Runtime; do
+            v=$(curl -s "https://api.nuget.org/v3-flatcontainer/$(echo $id | tr A-Z a-z)/index.json" | python3 -c "import json,sys;v=json.load(sys.stdin)['versions'];print(' '.join([x for x in v if '-' not in x][-6:]))" 2>/dev/null)
+            echo "::notice title=$id::$v"
+          done
