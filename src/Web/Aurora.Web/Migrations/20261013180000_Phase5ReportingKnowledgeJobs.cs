@@ -37,7 +37,7 @@ namespace Aurora.Web.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_ExecutiveReportRuns_OrganizationId_GeneratedAtUtc",
                 table: "ExecutiveReportRuns",
-                column: new[] { "OrganizationId", "GeneratedAtUtc" });
+                columns: new[] { "OrganizationId", "GeneratedAtUtc" });
 
             migrationBuilder.CreateTable(
                 name: "GraphSnapshotRecords",
@@ -61,7 +61,7 @@ namespace Aurora.Web.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_GraphSnapshotRecords_OrganizationId_CapturedAtUtc",
                 table: "GraphSnapshotRecords",
-                column: new[] { "OrganizationId", "CapturedAtUtc" });
+                columns: new[] { "OrganizationId", "CapturedAtUtc" });
 
             migrationBuilder.CreateTable(
                 name: "KnowledgeDocuments",
@@ -107,7 +107,7 @@ namespace Aurora.Web.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_DocumentChunks_OrganizationId_KnowledgeDocumentId_Ordinal",
                 table: "DocumentChunks",
-                column: new[] { "OrganizationId", "KnowledgeDocumentId", "Ordinal" });
+                columns: new[] { "OrganizationId", "KnowledgeDocumentId", "Ordinal" });
 
             migrationBuilder.CreateTable(
                 name: "DebateSessions",
@@ -133,7 +133,7 @@ namespace Aurora.Web.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_DebateSessions_OrganizationId_DecisionId_StartedAtUtc",
                 table: "DebateSessions",
-                column: new[] { "OrganizationId", "DecisionId", "StartedAtUtc" });
+                columns: new[] { "OrganizationId", "DecisionId", "StartedAtUtc" });
 
             migrationBuilder.CreateTable(
                 name: "DebateArguments",
@@ -158,7 +158,7 @@ namespace Aurora.Web.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_DebateArguments_OrganizationId_DebateSessionId_Ordinal",
                 table: "DebateArguments",
-                column: new[] { "OrganizationId", "DebateSessionId", "Ordinal" });
+                columns: new[] { "OrganizationId", "DebateSessionId", "Ordinal" });
 
             migrationBuilder.CreateTable(
                 name: "BackgroundJobs",
@@ -187,7 +187,7 @@ namespace Aurora.Web.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_BackgroundJobs_Status_AvailableAtUtc",
                 table: "BackgroundJobs",
-                column: new[] { "Status", "AvailableAtUtc" });
+                columns: new[] { "Status", "AvailableAtUtc" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_BackgroundJobs_OrganizationId",

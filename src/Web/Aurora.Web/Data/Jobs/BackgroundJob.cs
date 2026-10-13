@@ -23,7 +23,7 @@ public sealed class BackgroundJob : Entity, ITenantScoped
     public const int ResultMaxLength = 2000;
     public const int ErrorMaxLength = 200;
 
-    protected BackgroundJob()
+    private BackgroundJob()
     {
     }
 

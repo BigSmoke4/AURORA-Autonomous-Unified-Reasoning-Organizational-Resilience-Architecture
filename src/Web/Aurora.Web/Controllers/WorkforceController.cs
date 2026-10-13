@@ -1,4 +1,5 @@
 using Aurora.Modules.Audit.Application;
+using Aurora.Modules.DigitalTwin.Domain;
 using Aurora.Modules.Identity.Domain;
 using Aurora.Modules.Workforce.Application;
 using Aurora.Modules.Workforce.Domain;

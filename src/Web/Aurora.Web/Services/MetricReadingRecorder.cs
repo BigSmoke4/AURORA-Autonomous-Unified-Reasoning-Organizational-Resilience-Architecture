@@ -1,3 +1,4 @@
+using Aurora.Modules.Alerts.Application;
 using Aurora.Modules.Alerts.Domain;
 using Aurora.Modules.Monitoring.Application;
 using Aurora.Modules.Monitoring.Domain;
