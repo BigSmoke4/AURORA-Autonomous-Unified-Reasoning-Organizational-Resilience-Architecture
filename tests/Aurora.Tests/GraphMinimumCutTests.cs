@@ -64,7 +64,8 @@ public sealed class GraphMinimumCutTests
         Assert.DoesNotContain(findings, f => f.DependentNodeId == product.Id && f.SourceType == GraphNodeType.Supplier);
         // Factory is itself a source of Product, and Product has only one factory, so that factory is a real single point.
         Assert.Contains(findings, f => f.DependentNodeId == product.Id && f.SourceType == GraphNodeType.Factory && f.CutNodeIds.Single() == factory.Id);
-        Assert.Equal(new[] { s1.Id }, flagged);
+        // Flagged nodes are the members of every size-one cut: S1 (Factory depends on it alone) and Factory (Product depends on it alone).
+        Assert.Equal(new[] { s1.Id, factory.Id }.OrderBy(id => id), flagged.OrderBy(id => id));
     }
 
     [Fact]
