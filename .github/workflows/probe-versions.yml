@@ -1,5 +1,5 @@
 name: probe-versions
-on: workflow_dispatch
+on: push
 permissions:
   contents: read
 jobs:
