@@ -7,7 +7,7 @@ namespace Aurora.Web.Integration.Feeds;
 /// Fetches one payload from a live feed endpoint. The body is read up to a size limit, so a misbehaving source cannot
 /// exhaust memory. Error messages name the feed and the status code, but never the API key or the response body.
 /// </summary>
-internal static class HttpFeedClient
+public static class HttpFeedClient
 {
     public const int MaxPayloadBytes = 5 * 1024 * 1024;
     private const int ReadBufferBytes = 8192;

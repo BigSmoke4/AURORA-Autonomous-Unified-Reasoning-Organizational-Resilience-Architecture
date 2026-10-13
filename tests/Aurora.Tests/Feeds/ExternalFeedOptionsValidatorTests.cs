@@ -35,8 +35,8 @@ public sealed class ExternalFeedOptionsValidatorTests
         var result = Validator.Validate(null, options);
 
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Failures, f => f.Contains("https", StringComparison.Ordinal));
-        Assert.DoesNotContain(result.Failures, f => f.Contains("stub-api-key-value", StringComparison.Ordinal));
+        Assert.Contains((result.Failures ?? Array.Empty<string>()), f => f.Contains("https", StringComparison.Ordinal));
+        Assert.DoesNotContain((result.Failures ?? Array.Empty<string>()), f => f.Contains("stub-api-key-value", StringComparison.Ordinal));
     }
 
     [Theory]
