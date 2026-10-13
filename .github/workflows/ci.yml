@@ -46,16 +46,16 @@ jobs:
         run: dotnet restore Aurora.sln
 
       - name: Build
-        run: dotnet build Aurora.sln --no-restore -c Release
+        run: |
+          echo "::add-matcher::.github/matchers/msbuild.json"
+          dotnet build Aurora.sln --no-restore -c Release -warnaserror
 
       - name: Unit and integration tests
-        run: |
-          dotnet test Aurora.sln --no-build -c Release --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
-          # Guard against a silently empty test run (this happened once: the test project was not in the solution).
-          if [ -z "$(find TestResults -name '*.trx' 2>/dev/null)" ]; then
-            echo "::error::No test result files were produced; the test suite did not run."
-            exit 1
-          fi
+        run: dotnet test Aurora.sln --no-build -c Release --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+
+      - name: Report test results
+        if: always()
+        run: python3 .github/scripts/report-test-results.py
 
       - name: Upload test results
         if: always()
