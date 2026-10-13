@@ -28,7 +28,19 @@ RUN dotnet publish src/Web/Aurora.Web/Aurora.Web.csproj -c Release -o /app/publi
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
+
+# The runtime loads the Kerberos GSSAPI library on the first database connection. The slim base image
+# does not ship it, so the process crashes without it.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app/publish .
+
+# Data Protection keys (cookie and anti-forgery encryption) live in a directory that a volume can keep.
+# Without it, every container restart invalidates every signed-in session.
+ENV DataProtection__KeyDirectory=/home/app/keys
+RUN mkdir -p /home/app/keys && chown app:app /home/app/keys
 
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080

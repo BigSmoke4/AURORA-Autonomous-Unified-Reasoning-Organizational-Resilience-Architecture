@@ -40,8 +40,11 @@ services:
       AI__Endpoint: ${AURORA_AI_ENDPOINT:-}
       AI__Model: ${AURORA_AI_MODEL:-}
       AI__ApiKey: ${AURORA_AI_API_KEY:-}
+    volumes:
+      - aurora-dataprotection-keys:/home/app/keys
     ports:
       - "8080:8080"
 
 volumes:
   aurora-postgres-data:
+  aurora-dataprotection-keys:

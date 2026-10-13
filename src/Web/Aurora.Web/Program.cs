@@ -25,6 +25,7 @@ using Aurora.Web.Hubs;
 using Aurora.Web.Infrastructure;
 using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
@@ -109,6 +110,16 @@ builder.Services.AddRateLimiter(RateLimitPolicies.Configure);
 
 // ---------- MVC + Razor + SignalR ----------
 builder.Services.AddControllersWithViews();
+
+// Data Protection keys outlive the process when a key directory is configured, so sessions and
+// anti-forgery tokens survive restarts. The application name keeps keys from different apps apart.
+var dataProtectionKeyDirectory = builder.Configuration["DataProtection:KeyDirectory"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeyDirectory))
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyDirectory))
+        .SetApplicationName("Aurora");
+}
 builder.Services.AddSignalR();
 
 // Decimal values (scores, percentages, forecast levels) are rendered and bound with invariant

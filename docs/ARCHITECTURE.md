@@ -84,7 +84,9 @@ shows the rows exist, so the zero counts mean something.
   `Secure` outside Development. The local Compose stack sets the flag to `false` because it serves HTTP on
   localhost. Shared deployments must terminate TLS in front of the app and keep the default.
 - **Container.** The image runs as the unprivileged `app` user from the aspnet base image. `.dockerignore`
-  excludes `.env`, build output, and test results.
+  excludes `.env`, build output, and test results. The runtime stage adds `libgssapi-krb5-2`, which the process
+  needs for its first database connection. Data Protection keys are written to `DataProtection:KeyDirectory`
+  (`/home/app/keys` in the image). Compose keeps that directory on a named volume, so sessions survive restarts.
 - **CI.** Every push runs two jobs. `build-and-test` restores, runs a vulnerable-package audit (failing on any
   known advisory), builds with warnings as errors, checks the EF model against the migrations, and runs the tests.
   `container-smoke` builds the image, starts it in Production mode against a PostgreSQL service, waits for
