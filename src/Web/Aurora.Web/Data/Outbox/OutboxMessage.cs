@@ -13,7 +13,7 @@ public sealed class OutboxMessage : Entity
     public const int PayloadMaxLength = 8000;
     public const int ErrorMaxLength = 200;
 
-    protected OutboxMessage()
+    private OutboxMessage()
     {
     }
 

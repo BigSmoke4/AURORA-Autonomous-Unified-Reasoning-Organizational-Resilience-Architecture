@@ -1,4 +1,5 @@
 using Aurora.Modules.Alerts.Domain;
+using Aurora.Shared.Kernel;
 using Aurora.Web.Data;
 using Aurora.Web.Data.Outbox;
 using Microsoft.EntityFrameworkCore;
