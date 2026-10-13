@@ -12,6 +12,8 @@ using Aurora.Web.Models.Forecasting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Holt linear-trend forecasting over a user-supplied series (spec section 17).</summary>
@@ -41,8 +43,9 @@ public class ForecastingController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Run(ForecastForm form, CancellationToken ct)
+    public async Task<IActionResult> Run(ForecastForm form, [FromServices] IValidator<ForecastForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await _orgAccessor.GetCurrentAsync(ct);
         if (org is null) return NotFound();
 

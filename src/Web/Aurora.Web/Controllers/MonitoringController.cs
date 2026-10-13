@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>
@@ -39,8 +41,9 @@ public class MonitoringController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.MonitoringManage)]
-    public async Task<IActionResult> CreateMetric(MetricDefinitionForm form, CancellationToken ct)
+    public async Task<IActionResult> CreateMetric(MetricDefinitionForm form, [FromServices] IValidator<MetricDefinitionForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, new MetricReadingForm { RecordedOn = TodayUtc() }, ct));
@@ -57,8 +60,9 @@ public class MonitoringController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.MonitoringManage)]
-    public async Task<IActionResult> RecordReading(MetricReadingForm form, CancellationToken ct)
+    public async Task<IActionResult> RecordReading(MetricReadingForm form, [FromServices] IValidator<MetricReadingForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
 

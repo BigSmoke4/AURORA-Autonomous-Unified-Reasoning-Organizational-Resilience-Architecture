@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Plan attainment and first-pass yield per factory period (spec section 21).</summary>
@@ -35,8 +37,9 @@ public class OperationsController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.OperationsManage)]
-    public async Task<IActionResult> Create(ProductionRecordForm form, CancellationToken ct)
+    public async Task<IActionResult> Create(ProductionRecordForm form, [FromServices] IValidator<ProductionRecordForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
 

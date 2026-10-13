@@ -9,6 +9,8 @@ using Aurora.Web.Infrastructure;
 using Aurora.Web.Models.Account;
 using Microsoft.AspNetCore.RateLimiting;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 public class AccountController : Controller
@@ -39,8 +41,9 @@ public class AccountController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [EnableRateLimiting(RateLimitPolicies.Authentication)]
-    public async Task<IActionResult> Login(LoginViewModel model)
+    public async Task<IActionResult> Login(LoginViewModel model, [FromServices] IValidator<LoginViewModel> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(model, ModelState, ct);
         if (!ModelState.IsValid) return View(model);
 
         var candidate = await _userManager.FindByEmailAsync(model.Email);

@@ -11,14 +11,14 @@ public static class ModuleFormatting
     public const string ToneCritical = "critical";
     public const string NotApplicable = "n/a";
 
-    public const string MinimumMoney = "0";
-    public const string MaximumMoney = "999999999999.99";
-    public const string MinimumPositiveMoney = "0.01";
-    public const string MinimumIndex = "0.0001";
-    public const string MaximumIndex = "1000000";
-    public const string MinimumReadingValue = "-999999999999.9999";
-    public const string MaximumReadingValue = "999999999999.9999";
-    public const string MaximumDemand = "1000000000";
+    public const decimal MinimumMoney = 0m;
+    public const decimal MaximumMoney = 999999999999.99m;
+    public const decimal MinimumPositiveMoney = 0.01m;
+    public const decimal MinimumIndex = 0.0001m;
+    public const decimal MaximumIndex = 1000000m;
+    public const decimal MinimumReadingValue = -999999999999.9999m;
+    public const decimal MaximumReadingValue = 999999999999.9999m;
+    public const decimal MaximumDemand = 1000000000m;
     public const int MaximumDelayDays = 365;
 
     private const string NumberFormat = "0.00";

@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Inventory cover and reorder points, plus supplier capacity stretch (spec section 26).</summary>
@@ -31,8 +33,9 @@ public class SupplyChainController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.SupplyChainManage)]
-    public async Task<IActionResult> Create(InventoryPositionForm form, CancellationToken ct)
+    public async Task<IActionResult> Create(InventoryPositionForm form, [FromServices] IValidator<InventoryPositionForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, ct));

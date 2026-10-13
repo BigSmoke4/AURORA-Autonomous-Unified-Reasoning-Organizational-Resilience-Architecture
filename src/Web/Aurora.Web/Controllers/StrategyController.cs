@@ -16,6 +16,8 @@ using Aurora.Web.Models.Strategy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>
@@ -60,8 +62,9 @@ public class StrategyController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.SimulationRun)]
-    public async Task<IActionResult> Counterfactual([Bind(Prefix = nameof(StrategyIndexViewModel.Counterfactual))] CounterfactualForm form, CancellationToken ct)
+    public async Task<IActionResult> Counterfactual([Bind(Prefix = nameof(StrategyIndexViewModel.Counterfactual))] CounterfactualForm form, [FromServices] IValidator<CounterfactualForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await _orgAccessor.GetCurrentAsync(ct);
         if (org is null) return NotFound();
 
@@ -103,8 +106,9 @@ public class StrategyController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.OptimizationRun)]
-    public async Task<IActionResult> Optimize([Bind(Prefix = nameof(StrategyIndexViewModel.Optimization))] OptimizationForm form, CancellationToken ct)
+    public async Task<IActionResult> Optimize([Bind(Prefix = nameof(StrategyIndexViewModel.Optimization))] OptimizationForm form, [FromServices] IValidator<OptimizationForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await _orgAccessor.GetCurrentAsync(ct);
         if (org is null) return NotFound();
 

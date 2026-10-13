@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Budget variance and utilization per cost center (spec section 20).</summary>
@@ -31,8 +33,9 @@ public class FinanceController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.FinanceManage)]
-    public async Task<IActionResult> Create(CostCenterForm form, CancellationToken ct)
+    public async Task<IActionResult> Create(CostCenterForm form, [FromServices] IValidator<CostCenterForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
 

@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.Extensions.Options;
 using Aurora.Modules.AI.Application;
 using Aurora.Modules.AI.Contracts;
@@ -110,6 +111,9 @@ builder.Services.AddRateLimiter(RateLimitPolicies.Configure);
 
 // ---------- MVC + Razor + SignalR ----------
 builder.Services.AddControllersWithViews();
+
+// ---------- Validation (FluentValidation, explicit per action; see Validation/FormValidationExtensions.cs) ----------
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 // Data Protection keys outlive the process when a key directory is configured, so sessions and
 // anti-forgery tokens survive restarts. The application name keeps keys from different apps apart.

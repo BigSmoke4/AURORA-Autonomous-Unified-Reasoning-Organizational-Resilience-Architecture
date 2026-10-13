@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Patch compliance for each technology asset against its service-level window (spec section 22).</summary>
@@ -34,8 +36,9 @@ public class TechnologyController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.TechnologyManage)]
-    public async Task<IActionResult> Create(PatchPolicyForm form, CancellationToken ct)
+    public async Task<IActionResult> Create(PatchPolicyForm form, [FromServices] IValidator<PatchPolicyForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
 
@@ -64,8 +67,9 @@ public class TechnologyController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.TechnologyManage)]
-    public async Task<IActionResult> RecordPatch(RecordPatchForm form, CancellationToken ct)
+    public async Task<IActionResult> RecordPatch(RecordPatchForm form, [FromServices] IValidator<RecordPatchForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
 

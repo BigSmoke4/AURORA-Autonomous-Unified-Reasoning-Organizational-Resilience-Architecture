@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Demand and price trend per market from recorded index observations (spec section 23).</summary>
@@ -31,8 +33,9 @@ public class MarketsController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.MarketsManage)]
-    public async Task<IActionResult> Create(MarketObservationForm form, CancellationToken ct)
+    public async Task<IActionResult> Create(MarketObservationForm form, [FromServices] IValidator<MarketObservationForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, ct));

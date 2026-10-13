@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Straight-line depreciation and net book value for physical assets (spec section 24).</summary>
@@ -31,8 +33,9 @@ public class AssetsController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.AssetsManage)]
-    public async Task<IActionResult> Create(PhysicalAssetForm form, CancellationToken ct)
+    public async Task<IActionResult> Create(PhysicalAssetForm form, [FromServices] IValidator<PhysicalAssetForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, ct));

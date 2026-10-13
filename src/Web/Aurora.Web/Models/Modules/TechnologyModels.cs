@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Aurora.Modules.Technology.Domain;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
@@ -6,24 +5,14 @@ namespace Aurora.Web.Models.Modules;
 
 public sealed class PatchPolicyForm
 {
-    [Required]
     public Guid? TechnologyAssetId { get; set; }
-
-    [Required]
-    [DataType(DataType.Date)]
     public DateTime LastPatchedOn { get; set; }
-
-    [Range(PatchPolicy.MinSlaDays, PatchPolicy.MaxSlaDays)]
     public int PatchSlaDays { get; set; } = PatchPolicy.MinSlaDays;
 }
 
 public sealed class RecordPatchForm
 {
-    [Required]
     public Guid? PatchPolicyId { get; set; }
-
-    [Required]
-    [DataType(DataType.Date)]
     public DateTime PatchedOn { get; set; }
 }
 

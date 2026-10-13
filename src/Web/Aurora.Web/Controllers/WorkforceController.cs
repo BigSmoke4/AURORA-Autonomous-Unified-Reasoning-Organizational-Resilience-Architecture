@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Critical-role headcount coverage measured against the digital-twin employee roster (spec section 19).</summary>
@@ -31,8 +33,9 @@ public class WorkforceController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.WorkforceManage)]
-    public async Task<IActionResult> Create(WorkforceRoleForm form, CancellationToken ct)
+    public async Task<IActionResult> Create(WorkforceRoleForm form, [FromServices] IValidator<WorkforceRoleForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, ct));

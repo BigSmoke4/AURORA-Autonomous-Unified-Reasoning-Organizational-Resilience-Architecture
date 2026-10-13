@@ -14,6 +14,8 @@ using Aurora.Web.Models.Decisions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>
@@ -126,8 +128,9 @@ public class DecisionsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.DecisionExecute)]
-    public async Task<IActionResult> RecordOutcome(Guid id, RecordOutcomeForm form, CancellationToken ct)
+    public async Task<IActionResult> RecordOutcome(Guid id, RecordOutcomeForm form, [FromServices] IValidator<RecordOutcomeForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await _orgAccessor.GetCurrentAsync(ct);
         if (org is null) return NotFound();
 
@@ -162,8 +165,9 @@ public class DecisionsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.DecisionPropose)]
-    public async Task<IActionResult> Propose(ProposeDecisionForm form, CancellationToken ct)
+    public async Task<IActionResult> Propose(ProposeDecisionForm form, [FromServices] IValidator<ProposeDecisionForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await _orgAccessor.GetCurrentAsync(ct);
         if (org is null) return NotFound();
 

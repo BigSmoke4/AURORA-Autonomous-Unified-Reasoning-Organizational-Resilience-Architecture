@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Aurora.Modules.Analysis.Domain;
 using Aurora.Modules.Forecasting.Domain;
 using Aurora.Modules.Optimization.Domain;
@@ -18,18 +17,9 @@ public sealed class AnalysisDetailsViewModel
 
 public sealed class ProposeDecisionForm
 {
-    [Required]
     public Guid AnalysisRecordId { get; set; }
-
-    [Range(0, 100)]
     public decimal OperationalFeasibility { get; set; } = 50m;
-
-    [Range(0, 100)]
     public decimal StrategicAlignment { get; set; } = 50m;
-
-    [Range(0, 365)]
     public int DaysToBenefit { get; set; } = 90;
-
-    [Range(0, 100)]
     public decimal Confidence { get; set; } = 50m;
 }

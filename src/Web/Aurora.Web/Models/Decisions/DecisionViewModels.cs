@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Aurora.Modules.Decisions.Domain;
 
 namespace Aurora.Web.Models.Decisions;
@@ -20,12 +19,6 @@ public sealed class DecisionDetailsViewModel
 public sealed class RecordOutcomeForm
 {
     public const int MaxSummaryLength = 2000;
-
-    [Required]
-    [Range(typeof(decimal), "-1000000000000", "1000000000000", ErrorMessage = "Enter a realistic revenue impact.")]
     public decimal ActualRevenueImpact { get; set; }
-
-    [Required]
-    [StringLength(MaxSummaryLength, MinimumLength = 3)]
     public string ActualOutcomeSummary { get; set; } = string.Empty;
 }

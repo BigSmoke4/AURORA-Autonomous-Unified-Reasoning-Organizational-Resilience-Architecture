@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Aurora.Modules.Audit.Application;
 using Aurora.Modules.Contracts.Application;
 using Aurora.Modules.Contracts.Domain;
@@ -10,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using FluentValidation;
+using Aurora.Web.Validation;
 namespace Aurora.Web.Controllers;
 
 /// <summary>Contract term, renewal notice windows and delay penalty exposure (spec section 25).</summary>
@@ -21,8 +22,10 @@ public class ContractsController : ModuleControllerBase
     {
     }
 
-    public async Task<IActionResult> Index([Range(0, ModuleFormatting.MaximumDelayDays)] int delayDays, CancellationToken ct)
+    public async Task<IActionResult> Index(int delayDays, CancellationToken ct)
     {
+        if (delayDays < 0 || delayDays > ModuleFormatting.MaximumDelayDays) return BadRequest();
+
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return View("NoOrganization");
 
@@ -32,8 +35,9 @@ public class ContractsController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.ContractsManage)]
-    public async Task<IActionResult> Create(SupplierContractForm form, CancellationToken ct)
+    public async Task<IActionResult> Create(SupplierContractForm form, [FromServices] IValidator<SupplierContractForm> validator, CancellationToken ct)
     {
+        await validator.ValidateIntoModelStateAsync(form, ModelState, ct);
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
         if (!ModelState.IsValid) return View(nameof(Index), await BuildIndexAsync(form, 0, ct));
