@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.AspNetCore.Hosting;
 using Aurora.Tests.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
