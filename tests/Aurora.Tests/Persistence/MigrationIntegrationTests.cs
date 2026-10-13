@@ -76,6 +76,9 @@ public sealed class MigrationIntegrationTests
                 "target-edge-attenuation-v1", "{}", "{}", userId));
             setup.AuditEntries.Add(new AuditEntry(orgA.Id, userId, "analyst", AuditActions.DecisionProposed,
                 "Decision", decision.Id.ToString(), AuditOutcome.Success, null, null));
+            // A platform-level sign-in event has no organization and must stay invisible to every tenant.
+            setup.AuditEntries.Add(new AuditEntry(null, null, "unknown@example.com", AuditActions.SignInFailed,
+                "User", null, AuditOutcome.Failure, null, null));
             await setup.SaveChangesAsync();
         }
 
@@ -99,8 +102,10 @@ public sealed class MigrationIntegrationTests
         await using (var anonymous = new AuroraDbContext(options, new FixedTenant(null)))
         {
             Assert.Equal(0, await anonymous.Decisions.CountAsync());
+            Assert.Equal(0, await anonymous.AuditEntries.CountAsync());
             // The unfiltered count proves that rows exist, so the zero counts above are meaningful.
             Assert.Equal(1, await anonymous.Decisions.IgnoreQueryFilters().CountAsync());
+            Assert.Equal(2, await anonymous.AuditEntries.IgnoreQueryFilters().CountAsync());
         }
     }
 

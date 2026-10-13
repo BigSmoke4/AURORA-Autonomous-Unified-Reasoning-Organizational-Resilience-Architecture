@@ -120,6 +120,11 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
                 builder.Entity(entityType.ClrType).Property(nameof(Entity.Version)).IsConcurrencyToken();
             }
         }
+
+        // AuditEntry is not ITenantScoped because platform-level sign-in events have no organization,
+        // so its tenant filter is written explicitly. A null organization never equals a real tenant,
+        // and a context with no tenant compares against NoTenant, which no row carries.
+        builder.Entity<AuditEntry>().HasQueryFilter(e => e.OrganizationId == CurrentTenantId);
     }
 
     private void ApplyTenantFilter<TEntity>(ModelBuilder builder) where TEntity : class, ITenantScoped =>
