@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
 using Aurora.Modules.DigitalTwin.Domain;
@@ -32,6 +33,7 @@ public sealed class ModulePagesHttpTests : IClassFixture<WebApplicationFactory<P
     private const string LoginPath = "/Account/Login";
     private const string WorkforcePath = "/Workforce";
     private const string AntiforgeryField = "__RequestVerificationToken";
+    private const string IsoDateFormat = "yyyy-MM-dd";
     private const string InvalidLoginMessage = "Invalid login attempt.";
     private const string EmptyWorkforceMessage = "No critical roles are defined yet.";
     private const string CsvContentType = "text/csv";
@@ -244,6 +246,35 @@ public sealed class ModulePagesHttpTests : IClassFixture<WebApplicationFactory<P
             ["Form.LastPatchedOn"] = "2026-10-01",
             ["Form.PatchSlaDays"] = "30",
         });
+    }
+
+    [Fact]
+    public async Task RecordPatch_AdvancesTheLastPatchDateOfAnExistingPolicy()
+    {
+        var policy = await QueryDemoAsync((db, organizationId) => db.TechnologyPatchPolicies.IgnoreQueryFilters()
+            .Where(p => p.OrganizationId == organizationId)
+            .Select(p => new { p.Id, p.LastPatchedOnUtc })
+            .FirstAsync());
+        var patchedOn = DateTime.UtcNow.Date;
+        Assert.True(policy.LastPatchedOnUtc < patchedOn, "The seeded policy must have been last patched before today.");
+
+        using var administrator = await SignInAsync(AdministratorEmail);
+        var response = await administrator.PostAsync($"{TechnologyPath}/RecordPatch", Form(new Dictionary<string, string>
+        {
+            ["PatchPolicyId"] = policy.Id.ToString(),
+            ["PatchedOn"] = patchedOn.ToString(IsoDateFormat, CultureInfo.InvariantCulture),
+            [AntiforgeryField] = ReadAntiforgeryToken(await GetTextAsync(administrator, TechnologyPath)),
+        }));
+
+        Assert.True(response.StatusCode == HttpStatusCode.Redirect,
+            $"RecordPatch returned {(int)response.StatusCode}; the patch was not accepted.");
+        Assert.Contains(TechnologyPath, response.Headers.Location?.OriginalString ?? string.Empty);
+
+        var recorded = await QueryDemoAsync((db, _) => db.TechnologyPatchPolicies.IgnoreQueryFilters()
+            .Where(p => p.Id == policy.Id)
+            .Select(p => p.LastPatchedOnUtc)
+            .SingleAsync());
+        Assert.Equal(patchedOn, recorded.Date);
     }
 
     [Fact]

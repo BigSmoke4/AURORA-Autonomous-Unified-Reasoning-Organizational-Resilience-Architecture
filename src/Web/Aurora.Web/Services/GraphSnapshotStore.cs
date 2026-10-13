@@ -24,7 +24,8 @@ public sealed class GraphSnapshotStore(AuroraDbContext db, IGraphProjectionServi
     /// <summary>Restores a captured graph. Returns null when no snapshot with that id belongs to the current tenant.</summary>
     public async Task<(GraphSnapshotRecord Record, GraphSnapshot Graph)?> RestoreAsync(Guid organizationId, Guid snapshotId, CancellationToken ct)
     {
-        var record = await db.GraphSnapshotRecords.AsNoTracking().FirstOrDefaultAsync(r => r.Id == snapshotId, ct);
+        var record = await db.GraphSnapshotRecords.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == snapshotId && r.OrganizationId == organizationId, ct);
         return record is null ? null : (record, GraphSnapshotCodec.Deserialize(organizationId, record.PayloadJson));
     }
 

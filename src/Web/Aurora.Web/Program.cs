@@ -138,6 +138,7 @@ builder.Services.AddScoped<Aurora.Web.Infrastructure.Jobs.IBackgroundJobHandler,
 builder.Services.AddScoped<Aurora.Web.Integration.Feeds.IExternalFeedAdapter, Aurora.Web.Integration.Feeds.FixtureMetricFeedAdapter>();
 builder.Services.AddScoped<Aurora.Web.Integration.Feeds.MetricFeedIngestor>();
 builder.Services.AddScoped<Aurora.Web.Services.GraphSnapshotStore>();
+builder.Services.AddScoped<Aurora.Web.Services.MetricReadingRecorder>();
 builder.Services.AddScoped<Aurora.Web.Services.DecisionDebateService>();
 builder.Services.AddHostedService<Aurora.Web.Infrastructure.Jobs.BackgroundJobDispatcher>();
 

@@ -41,6 +41,10 @@ public static class GraphSnapshotCodec
         {
             throw new InvalidDataException($"Graph snapshot schema {payload.SchemaVersion} is not supported.");
         }
+        if (payload.Nodes is null || payload.Edges is null)
+        {
+            throw new InvalidDataException("The graph snapshot is missing its nodes or edges.");
+        }
 
         var nodes = payload.Nodes.Select(n => GraphNode.Restore(
             n.Id, organizationId, n.NodeType, n.EntityId, n.DisplayName, n.Criticality, n.RevenueExposure, n.Status));

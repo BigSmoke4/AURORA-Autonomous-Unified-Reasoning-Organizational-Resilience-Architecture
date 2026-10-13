@@ -43,4 +43,12 @@ public sealed class GraphSnapshotCodecTests
 
         Assert.Throws<InvalidDataException>(() => GraphSnapshotCodec.Deserialize(_org, json));
     }
+
+    [Theory]
+    [InlineData("{\"SchemaVersion\":1,\"Edges\":[]}")]
+    [InlineData("{\"SchemaVersion\":1,\"Nodes\":[]}")]
+    public void PayloadWithoutNodesOrEdgesIsRejected(string json)
+    {
+        Assert.Throws<InvalidDataException>(() => GraphSnapshotCodec.Deserialize(_org, json));
+    }
 }
