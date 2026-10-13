@@ -10,12 +10,16 @@
     const progress = document.getElementById('simulation-progress');
     if (!form || !progress || typeof window.signalR === 'undefined') return;
 
+    // The run's phase messages are sent to the scenario group as soon as the POST starts. A submit
+    // therefore waits, for at most this long, for the join to finish, so no phase message is missed.
+    const JOIN_WAIT_MS = 3000;
+
     const scenarioId = form.dataset.scenarioId;
     const message = progress.querySelector('.aurora-progress__message');
     const bar = progress.querySelector('.aurora-progress__bar');
+    let joined = false;
+    let submitting = false;
 
-    // The connection is opened and joined before the form is submitted, so the server's phase
-    // messages reach this page while the POST is in flight.
     const connection = new window.signalR.HubConnectionBuilder().withUrl('/hubs/simulation').withAutomaticReconnect().build();
     connection.on('progress', (payload) => {
       if (payload.scenarioId !== scenarioId) return;
@@ -24,16 +28,31 @@
       message.textContent = payload.message;
     });
 
-    connection.start()
+    // Failure is not an error for the user: the run still starts, just without live updates.
+    const joinFinished = connection.start()
       .then(() => connection.invoke('JoinScenario', scenarioId))
-      .catch(() => {
-        message.textContent = 'Live progress is unavailable. The results page opens when the run finishes.';
-      });
+      .then(() => { joined = true; })
+      .catch(() => {});
+    const joinOrTimeout = Promise.race([
+      joinFinished,
+      new Promise((resolve) => setTimeout(resolve, JOIN_WAIT_MS)),
+    ]);
 
-    form.addEventListener('submit', () => {
+    form.addEventListener('submit', (event) => {
+      if (submitting) {
+        event.preventDefault();
+        return;
+      }
+
+      progress.hidden = false;
       bar.style.setProperty('--aurora-progress', '0%');
       message.textContent = 'Starting...';
-      progress.hidden = false;
+
+      if (joined) return; // Joined already: let the browser post the form normally.
+
+      event.preventDefault();
+      submitting = true;
+      joinOrTimeout.then(() => form.submit());
     });
   }
 

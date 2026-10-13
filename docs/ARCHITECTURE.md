@@ -85,7 +85,10 @@ shows the rows exist, so the zero counts mean something.
   localhost. Shared deployments must terminate TLS in front of the app and keep the default.
 - **Container.** The image runs as the unprivileged `app` user from the aspnet base image. `.dockerignore`
   excludes `.env`, build output, and test results.
-- **CI.** The `docker-build` job builds the image on every push, so a broken Dockerfile fails CI.
+- **CI.** Every push runs two jobs. `build-and-test` restores, runs a vulnerable-package audit (failing on any
+  known advisory), builds with warnings as errors, checks the EF model against the migrations, and runs the tests.
+  `container-smoke` builds the image, starts it in Production mode against a PostgreSQL service, waits for
+  `/health/ready`, and checks `/health/live`, the login page, and the Content Security Policy header.
 
 ## Optimistic concurrency
 

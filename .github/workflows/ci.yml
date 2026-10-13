@@ -50,6 +50,14 @@ jobs:
       - name: Restore
         run: dotnet restore Aurora.sln
 
+      - name: Vulnerable package audit
+        run: |
+          dotnet list Aurora.sln package --vulnerable --include-transitive | tee vulnerable-packages.txt
+          if grep -q "has the following vulnerable packages" vulnerable-packages.txt; then
+            echo "::error::A referenced package has a known vulnerability. See the log above."
+            exit 1
+          fi
+
       - name: Build
         run: |
           echo "::add-matcher::.github/matchers/msbuild.json"
@@ -77,9 +85,27 @@ jobs:
           path: TestResults/**/*.trx
           if-no-files-found: ignore
 
-  docker-build:
+  container-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aurora_test
+          POSTGRES_USER: aurora
+          POSTGRES_PASSWORD: ci_only_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aurora -d aurora_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      AURORA_CONTAINER_CONNECTION: "Host=localhost;Port=5432;Database=aurora_test;Username=aurora;Password=ci_only_password"
 
     steps:
       - name: Checkout
@@ -87,3 +113,43 @@ jobs:
 
       - name: Build the web image
         run: docker build --tag aurora-web:ci .
+
+      - name: Start the container in Production mode
+        run: |
+          docker run --detach --name aurora-web --network host \
+            -e ASPNETCORE_ENVIRONMENT=Production \
+            -e ASPNETCORE_URLS=http://+:8080 \
+            -e Security__RequireHttps=false \
+            -e ConnectionStrings__AuroraDb="$AURORA_CONTAINER_CONNECTION" \
+            aurora-web:ci
+
+      - name: Wait for readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://localhost:8080/health/ready > /dev/null; then
+              echo "Ready after attempt $attempt."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::The container did not become ready."
+          docker logs aurora-web
+          exit 1
+
+      - name: Smoke checks
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error http://localhost:8080/health/live > /dev/null
+          status=$(curl --silent --output /dev/null --write-out "%{http_code}" http://localhost:8080/Account/Login)
+          test "$status" = "200"
+          headers=$(curl --silent --head http://localhost:8080/Account/Login)
+          echo "$headers" | grep -qi "^content-security-policy:.*script-src 'self'"
+          echo "$headers" | grep -qi "^x-content-type-options: nosniff"
+
+      - name: Container logs
+        if: always()
+        run: docker logs aurora-web || true
+
+      - name: Stop the container
+        if: always()
+        run: docker rm --force aurora-web || true
