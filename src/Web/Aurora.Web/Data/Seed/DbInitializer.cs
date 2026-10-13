@@ -20,12 +20,13 @@ public static class DbInitializer
         var db = scope.ServiceProvider.GetRequiredService<AuroraDbContext>();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<AuroraDbContextSeedMarker>>();
 
         await db.Database.MigrateAsync();
 
         await SeedRolesAsync(roleManager);
-        var adminUser = await SeedAdminUserAsync(userManager);
+        var adminUser = await SeedAdminUserAsync(userManager, configuration["Seed:AdminPassword"], logger);
 
         if (await db.Organizations.AnyAsync())
         {
@@ -39,7 +40,7 @@ public static class DbInitializer
         db.Organizations.Add(org);
         await db.SaveChangesAsync();
 
-        if (adminUser.OrganizationId is null)
+        if (adminUser is not null && adminUser.OrganizationId is null)
         {
             adminUser.OrganizationId = org.Id;
             await userManager.UpdateAsync(adminUser);
@@ -241,11 +242,22 @@ public static class DbInitializer
         }
     }
 
-    private static async Task<ApplicationUser> SeedAdminUserAsync(UserManager<ApplicationUser> userManager)
+    /// <summary>
+    /// Creates the bootstrap administrator only when a password is supplied through configuration
+    /// (Seed:AdminPassword, from user-secrets or the environment). No credential is ever hard-coded.
+    /// </summary>
+    private static async Task<ApplicationUser?> SeedAdminUserAsync(
+        UserManager<ApplicationUser> userManager, string? adminPassword, ILogger logger)
     {
         const string adminEmail = "admin@aurora.local";
         var existing = await userManager.FindByEmailAsync(adminEmail);
         if (existing is not null) return existing;
+
+        if (string.IsNullOrWhiteSpace(adminPassword))
+        {
+            logger.LogWarning("No bootstrap administrator exists and Seed:AdminPassword is not configured; skipping admin creation.");
+            return null;
+        }
 
         var admin = new ApplicationUser
         {
@@ -256,9 +268,7 @@ public static class DbInitializer
             EmailConfirmed = true
         };
 
-        // Demo-only credential. Change immediately in any non-local environment — see README
-        // "Security Notes". Never reuse this password outside a local sandbox.
-        var result = await userManager.CreateAsync(admin, "Aurora!Demo2026");
+        var result = await userManager.CreateAsync(admin, adminPassword);
         if (!result.Succeeded)
             throw new InvalidOperationException("Failed to seed admin user: " + string.Join(", ", result.Errors.Select(e => e.Description)));
 

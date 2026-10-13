@@ -40,7 +40,14 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "10.0.x"
+
+      - name: Verify EF Core model matches migrations
+        env:
+          ConnectionStrings__AuroraDb: ${{ env.AURORA_TEST_CONNECTION }}
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.12
+          "$HOME/.dotnet/tools/dotnet-ef" migrations has-pending-model-changes --project src/Web/Aurora.Web/Aurora.Web.csproj --startup-project src/Web/Aurora.Web/Aurora.Web.csproj
 
       - name: Restore
         run: dotnet restore Aurora.sln

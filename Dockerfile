@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY Aurora.sln .
@@ -15,13 +15,14 @@ COPY src/Modules/Aurora.Modules.Risk/Aurora.Modules.Risk.csproj src/Modules/Auro
 COPY src/Modules/Aurora.Modules.Decisions/Aurora.Modules.Decisions.csproj src/Modules/Aurora.Modules.Decisions/
 COPY src/Modules/Aurora.Modules.AI/Aurora.Modules.AI.csproj src/Modules/Aurora.Modules.AI/
 COPY src/Web/Aurora.Web/Aurora.Web.csproj src/Web/Aurora.Web/
+COPY tests/Aurora.Tests/Aurora.Tests.csproj tests/Aurora.Tests/
 
 RUN dotnet restore Aurora.sln
 
 COPY . .
 RUN dotnet publish src/Web/Aurora.Web/Aurora.Web.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 

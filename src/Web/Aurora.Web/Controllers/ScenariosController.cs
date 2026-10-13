@@ -74,10 +74,10 @@ public class ScenariosController : Controller
         var org = await _orgAccessor.GetCurrentAsync(ct);
         if (org is null) return NotFound();
 
-        if (string.IsNullOrWhiteSpace(model.Name) || model.TargetNodeId == Guid.Empty)
+        var snapshot = await _graphProjection.BuildLiveGraphAsync(org.Id, ct);
+        if (string.IsNullOrWhiteSpace(model.Name) || model.TargetNodeId == Guid.Empty || snapshot.Find(model.TargetNodeId) is null)
         {
-            ModelState.AddModelError(string.Empty, "A name and target are required.");
-            var snapshot = await _graphProjection.BuildLiveGraphAsync(org.Id, ct);
+            ModelState.AddModelError(string.Empty, "A name and a target from the current digital twin are required.");
             model.AvailableNodes = snapshot.Nodes.Values.OrderBy(n => n.DisplayName).Select(n => (n.Id, n.DisplayName)).ToList();
             return View(model);
         }

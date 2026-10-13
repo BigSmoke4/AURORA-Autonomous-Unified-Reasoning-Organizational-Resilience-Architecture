@@ -5,9 +5,11 @@ using Microsoft.AspNetCore.Identity;
 
 namespace Aurora.Web.Models;
 
-/// <summary>Adds the user's home organization id as a claim on sign-in, so
-/// CurrentOrganizationAccessor can resolve tenant context without a database round trip on
-/// every request (spec section 42, tenant isolation enforced server-side).</summary>
+/// <summary>
+/// Adds the user's home organization as a claim so tenant resolution needs no extra query per request
+/// (spec section 42). Permission claims are already materialized at sign-in by ASP.NET Core Identity
+/// from each role's claims, so they are not re-queried here.
+/// </summary>
 public sealed class AuroraClaimsTransformation : IClaimsTransformation
 {
     private readonly UserManager<ApplicationUser> _userManager;
@@ -17,13 +19,12 @@ public sealed class AuroraClaimsTransformation : IClaimsTransformation
     public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
     {
         if (principal.Identity?.IsAuthenticated != true) return principal;
-        if (principal.HasClaim(c => c.Type == "aurora:organizationId")) return principal;
+        if (principal.HasClaim(c => c.Type == AuroraClaims.OrganizationId)) return principal;
 
         var user = await _userManager.GetUserAsync(principal);
-        if (user?.OrganizationId is Guid orgId)
+        if (user?.OrganizationId is Guid organizationId && user.IsActive)
         {
-            var identity = (ClaimsIdentity)principal.Identity;
-            identity.AddClaim(new Claim("aurora:organizationId", orgId.ToString()));
+            ((ClaimsIdentity)principal.Identity).AddClaim(new Claim(AuroraClaims.OrganizationId, organizationId.ToString()));
         }
 
         return principal;

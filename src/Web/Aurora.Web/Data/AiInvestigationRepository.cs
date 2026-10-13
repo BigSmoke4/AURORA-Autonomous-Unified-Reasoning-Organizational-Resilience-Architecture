@@ -12,8 +12,9 @@ public sealed class AiInvestigationRepository : IAiInvestigationRepository
     public async Task AddAsync(AiInvestigation investigation, CancellationToken ct = default) =>
         await _db.AiInvestigations.AddAsync(investigation, ct);
 
-    public Task<AiInvestigation?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
-        _db.AiInvestigations.Include(i => i.Evidence).FirstOrDefaultAsync(i => i.Id == id, ct);
+    public Task<AiInvestigation?> GetByIdAsync(Guid organizationId, Guid id, CancellationToken ct = default) =>
+        _db.AiInvestigations.AsNoTracking().Include(i => i.Evidence)
+            .FirstOrDefaultAsync(i => i.OrganizationId == organizationId && i.Id == id, ct);
 
     public async Task<IReadOnlyList<AiInvestigation>> GetByOrganizationAsync(Guid organizationId, int take, CancellationToken ct = default) =>
         await _db.AiInvestigations.AsNoTracking().Where(i => i.OrganizationId == organizationId)

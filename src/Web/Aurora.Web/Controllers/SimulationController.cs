@@ -47,12 +47,14 @@ public class SimulationController : Controller
     [Authorize(Policy = "Simulation.Read")]
     public async Task<IActionResult> Details(Guid scenarioId, CancellationToken ct)
     {
-        var scenario = await _scenarioRepository.GetByIdAsync(scenarioId, ct);
+        var org = await _orgAccessor.GetCurrentAsync(ct);
+        if (org is null) return NotFound();
+
+        var scenario = await _scenarioRepository.GetByIdAsync(org.Id, scenarioId, ct);
         if (scenario is null) return NotFound();
 
-        var org = await _orgAccessor.GetCurrentAsync(ct);
-        var snapshot = await _graphProjection.BuildLiveGraphAsync(scenario.OrganizationId, ct);
-        var runs = await _simulationRepository.GetRunsByOrganizationAsync(scenario.OrganizationId, ct);
+        var snapshot = await _graphProjection.BuildLiveGraphAsync(org.Id, ct);
+        var runs = await _simulationRepository.GetRunsByOrganizationAsync(org.Id, ct);
 
         var vm = new ScenarioDetailsViewModel
         {
@@ -68,12 +70,19 @@ public class SimulationController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Run(Guid scenarioId, CancellationToken ct)
     {
-        var scenario = await _scenarioRepository.GetByIdAsync(scenarioId, ct);
+        var org = await _orgAccessor.GetCurrentAsync(ct);
+        if (org is null) return NotFound();
+
+        var scenario = await _scenarioRepository.GetByIdAsync(org.Id, scenarioId, ct);
         if (scenario is null) return NotFound();
 
-        var snapshot = await _graphProjection.BuildLiveGraphAsync(scenario.OrganizationId, ct);
+        var snapshot = await _graphProjection.BuildLiveGraphAsync(org.Id, ct);
+        if (snapshot.Find(scenario.TargetNodeId) is null)
+        {
+            return UnprocessableEntity("The scenario's target no longer exists in the digital twin. Edit the scenario and choose a current target.");
+        }
 
-        var run = new SimulationRun(scenario.OrganizationId, scenario.Id, randomSeed: Random.Shared.Next());
+        var run = new SimulationRun(org.Id, scenario.Id, randomSeed: Random.Shared.Next());
         await _simulationRepository.AddRunAsync(run, ct);
         await _simulationRepository.SaveChangesAsync(ct);
 
@@ -111,15 +120,18 @@ public class SimulationController : Controller
     [Authorize(Policy = "Simulation.Read")]
     public async Task<IActionResult> Results(Guid simulationRunId, CancellationToken ct)
     {
-        var run = await _simulationRepository.GetRunAsync(simulationRunId, ct);
+        var org = await _orgAccessor.GetCurrentAsync(ct);
+        if (org is null) return NotFound();
+
+        var run = await _simulationRepository.GetRunAsync(org.Id, simulationRunId, ct);
         if (run is null) return NotFound();
 
         var result = await _simulationRepository.GetResultAsync(simulationRunId, ct);
         var steps = await _simulationRepository.GetStepsAsync(simulationRunId, ct);
-        var scenario = await _scenarioRepository.GetByIdAsync(run.ScenarioId, ct);
+        var scenario = await _scenarioRepository.GetByIdAsync(org.Id, run.ScenarioId, ct);
         if (scenario is null) return NotFound();
 
-        var snapshot = await _graphProjection.BuildLiveGraphAsync(run.OrganizationId, ct);
+        var snapshot = await _graphProjection.BuildLiveGraphAsync(org.Id, ct);
 
         var dailySeries = steps
             .GroupBy(s => s.DayNumber)

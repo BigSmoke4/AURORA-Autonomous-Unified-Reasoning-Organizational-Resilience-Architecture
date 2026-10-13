@@ -20,3 +20,9 @@ appsettings.*.local.json
 
 # Logs
 *.log
+
+# Environment and secrets
+.env
+
+# Test output
+TestResults/

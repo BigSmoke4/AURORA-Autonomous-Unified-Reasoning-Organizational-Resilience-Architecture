@@ -4,3 +4,7 @@
 .aurora-simulation-chart .revenue-line { fill: none; stroke: var(--aurora-accent-strong); stroke-width: 2; stroke-dasharray: 4 3; }
 .aurora-simulation-chart .axis { stroke: var(--aurora-border-strong); }
 .aurora-simulation-chart .axis-label { fill: var(--aurora-text-muted); font-size: 10px; }
+
+.aurora-note--padded {
+  padding: 16px;
+}

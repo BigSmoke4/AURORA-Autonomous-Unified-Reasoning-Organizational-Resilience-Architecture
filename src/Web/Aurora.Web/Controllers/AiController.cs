@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Aurora.Modules.Identity.Domain;
+using Aurora.Web.Infrastructure;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Aurora.Web.Controllers;
 
@@ -12,6 +14,7 @@ namespace Aurora.Web.Controllers;
 /// failed?" runs a real InvestigationOrchestrator pipeline against the graph and returns
 /// evidence-backed results, not a chat completion.</summary>
 [Authorize(Policy = "AI.Investigate")]
+[EnableRateLimiting(RateLimitPolicies.AiInvestigation)]
 [Route("api/ai")]
 [ApiController]
 public class AiController : ControllerBase

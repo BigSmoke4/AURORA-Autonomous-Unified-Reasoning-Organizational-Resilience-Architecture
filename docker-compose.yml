@@ -1,5 +1,5 @@
-version: "3.9"
-
+# Local stack: PostgreSQL + AURORA Web.
+# Secrets are read from a .env file next to this file (copy .env.example and fill it in). Never commit .env.
 services:
   postgres:
     image: postgres:16-alpine
@@ -8,9 +8,9 @@ services:
     environment:
       POSTGRES_DB: aurora
       POSTGRES_USER: aurora
-      POSTGRES_PASSWORD: aurora_dev_password
+      POSTGRES_PASSWORD: ${AURORA_DB_PASSWORD:?Set AURORA_DB_PASSWORD in .env}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - aurora-postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -31,7 +31,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__AuroraDb: "Host=postgres;Port=5432;Database=aurora;Username=aurora;Password=aurora_dev_password"
+      ConnectionStrings__AuroraDb: "Host=postgres;Port=5432;Database=aurora;Username=aurora;Password=${AURORA_DB_PASSWORD:?Set AURORA_DB_PASSWORD in .env}"
+      Seed__AdminPassword: ${AURORA_ADMIN_PASSWORD:-}
+      AI__Provider: ${AURORA_AI_PROVIDER:-None}
+      AI__Endpoint: ${AURORA_AI_ENDPOINT:-}
+      AI__Model: ${AURORA_AI_MODEL:-}
+      AI__ApiKey: ${AURORA_AI_API_KEY:-}
     ports:
       - "8080:8080"
 

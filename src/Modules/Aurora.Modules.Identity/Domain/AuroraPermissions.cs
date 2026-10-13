@@ -19,21 +19,42 @@ public static class AuroraPermissions
     public const string DecisionApprove = "Decision.Approve";
     public const string DecisionExecute = "Decision.Execute";
     public const string ReportsRead = "Reports.Read";
+    public const string AuditRead = "Audit.Read";
+    public const string ForecastRun = "Forecast.Run";
+    public const string OptimizationApprove = "Optimization.Approve";
+
+    /// <summary>Every permission AURORA authorizes, used to register one policy per permission.</summary>
+    public static readonly IReadOnlyList<string> All = new[]
+    {
+        GraphRead, GraphWrite, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, SimulationRun,
+        OptimizationRun, OptimizationApprove, ForecastRun, AiInvestigate, AiApprove, DecisionRead, DecisionApprove,
+        DecisionExecute, ReportsRead, AuditRead
+    };
 
     /// <summary>Default permission grants per role. Seeded on startup; editable later via an
     /// admin screen without a code change once Administration module UI is built.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> DefaultRolePermissions = new Dictionary<string, string[]>
     {
-        [AuroraRoles.SystemAdministrator] = new[] { GraphRead, GraphWrite, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, SimulationRun, OptimizationRun, AiInvestigate, AiApprove, DecisionRead, DecisionApprove, DecisionExecute, ReportsRead },
-        [AuroraRoles.Executive] = new[] { GraphRead, ScenarioRead, SimulationRead, DecisionRead, DecisionApprove, ReportsRead },
-        [AuroraRoles.StrategyAnalyst] = new[] { GraphRead, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, SimulationRun, OptimizationRun, ReportsRead },
+        [AuroraRoles.SystemAdministrator] = All.ToArray(),
+        [AuroraRoles.Executive] = new[] { GraphRead, ScenarioRead, SimulationRead, DecisionRead, DecisionApprove, OptimizationApprove, ReportsRead },
+        [AuroraRoles.StrategyAnalyst] = new[] { GraphRead, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, SimulationRun, OptimizationRun, ForecastRun, ReportsRead },
         [AuroraRoles.OperationsManager] = new[] { GraphRead, ScenarioRead, SimulationRead, ReportsRead },
         [AuroraRoles.SupplyChainManager] = new[] { GraphRead, ScenarioRead, ScenarioCreate, SimulationRead, ReportsRead },
-        [AuroraRoles.FinanceManager] = new[] { GraphRead, ScenarioRead, SimulationRead, ReportsRead },
+        [AuroraRoles.FinanceManager] = new[] { GraphRead, ScenarioRead, SimulationRead, ForecastRun, ReportsRead },
         [AuroraRoles.RiskManager] = new[] { GraphRead, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, ReportsRead },
         [AuroraRoles.TechnologyManager] = new[] { GraphRead, ScenarioRead, SimulationRead, ReportsRead },
         [AuroraRoles.AiSupervisor] = new[] { GraphRead, ScenarioRead, SimulationRead, AiInvestigate, ReportsRead },
-        [AuroraRoles.DecisionApprover] = new[] { GraphRead, ScenarioRead, SimulationRead, DecisionRead, DecisionApprove, ReportsRead },
+        [AuroraRoles.DecisionApprover] = new[] { GraphRead, ScenarioRead, SimulationRead, DecisionRead, DecisionApprove, DecisionExecute, ReportsRead },
         [AuroraRoles.Viewer] = new[] { GraphRead, ScenarioRead, SimulationRead, ReportsRead },
     };
+}
+
+/// <summary>Claim types AURORA adds to authenticated principals.</summary>
+public static class AuroraClaims
+{
+    /// <summary>One claim per granted <see cref="AuroraPermissions"/> value, copied from the user's roles.</summary>
+    public const string Permission = "aurora:permission";
+
+    /// <summary>The tenant (organization) the user works in. Resolved server-side, never from request input.</summary>
+    public const string OrganizationId = "aurora:organizationId";
 }

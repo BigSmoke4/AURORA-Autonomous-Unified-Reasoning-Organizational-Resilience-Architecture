@@ -38,7 +38,7 @@
     if (!el) return;
     const series = JSON.parse(el.dataset.series || '[]');
     if (!series.length) {
-      el.innerHTML = '<p class="aurora-note" style="padding:16px;">No simulation steps to chart yet.</p>';
+      el.innerHTML = '<p class="aurora-note aurora-note--padded">No simulation steps to chart yet.</p>';
       return;
     }
 

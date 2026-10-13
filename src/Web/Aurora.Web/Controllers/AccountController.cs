@@ -2,7 +2,9 @@ using Aurora.Modules.Identity.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Aurora.Web.Infrastructure;
 using Aurora.Web.Models.Account;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Aurora.Web.Controllers;
 
@@ -24,9 +26,18 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Authentication)]
     public async Task<IActionResult> Login(LoginViewModel model)
     {
         if (!ModelState.IsValid) return View(model);
+
+        var candidate = await _userManager.FindByEmailAsync(model.Email);
+        if (candidate is { IsActive: false })
+        {
+            _logger.LogWarning("Sign-in refused for deactivated account {Email}.", model.Email);
+            ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+            return View(model);
+        }
 
         var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, lockoutOnFailure: true);
 
@@ -38,7 +49,7 @@ public class AccountController : Controller
                 user.LastLoginAtUtc = DateTime.UtcNow;
                 await _userManager.UpdateAsync(user);
             }
-            _logger.LogInformation("User {Email} signed in.", model.Email);
+            _logger.LogInformation("User {UserId} signed in.", user?.Id);
             return RedirectToLocal(model.ReturnUrl);
         }
 
@@ -48,6 +59,7 @@ public class AccountController : Controller
             return View(model);
         }
 
+        _logger.LogWarning("Failed sign-in attempt for {Email}.", model.Email);
         ModelState.AddModelError(string.Empty, "Invalid login attempt.");
         return View(model);
     }
