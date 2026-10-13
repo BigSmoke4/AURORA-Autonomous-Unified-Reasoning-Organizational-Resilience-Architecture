@@ -1,8 +1,13 @@
+using Aurora.Modules.Graph.Domain;
+
 namespace Aurora.Modules.Graph.Application;
 
 public sealed record PathResult(bool Found, IReadOnlyList<Guid> NodeIds, decimal TotalWeight);
 
 public sealed record ImpactedNode(Guid NodeId, int HopDistance, decimal PropagatedStrength);
+
+/// <summary>Vertex minimum-cut for one dependent and one supplier type. CutSize is the number of suppliers that must fail.</summary>
+public sealed record SupplyCut(Guid DependentNodeId, GraphNodeType SourceType, int CutSize, IReadOnlyList<Guid> CutNodeIds);
 
 /// <summary>
 /// The Graph Intelligence Engine (spec section 8). Pure, deterministic graph algorithms over a
@@ -152,40 +157,117 @@ public sealed class GraphTraversalService
     }
 
     /// <summary>
-    /// Single-sourcing screen. Node X is flagged when at least one dependent D (an edge X -&gt; D)
-    /// has no other incoming supplier of X's node type. This is a local screen, not a minimum-cut
-    /// analysis: it does not look past the immediate dependent for alternate paths, so it can
-    /// over-report when a dependent has a longer backup route. Callers must present the result as
-    /// "single-sourced nodes", not as a proven set of single points of failure.
+    /// Vertex minimum-cut of a dependent with respect to one supplier type: the fewest nodes of that type whose
+    /// failure would cut the dependent off from every node of that type. CutNodeIds lists one minimum cut.
+    /// A CutSize of 0 means no node of that type reaches the dependent.
     /// </summary>
-    public IReadOnlyList<Guid> DetectSingleSourcedNodes(GraphSnapshot snapshot)
+    public SupplyCut MinimumSupplyCut(GraphSnapshot snapshot, Guid dependentNodeId, GraphNodeType sourceType)
     {
-        var singleSourced = new List<Guid>();
-        foreach (var node in snapshot.Nodes.Values)
+        var ids = OrderedNodeIds(snapshot);
+        var index = IndexOf(ids);
+        if (!index.TryGetValue(dependentNodeId, out var sinkIndex))
         {
-            // Nodes that depend on 'node' are on the far end of node's OUTGOING edges
-            // (an edge Supplier -> Factory means the Factory depends on the Supplier).
-            var dependentEdges = snapshot.OutgoingEdges(node.Id);
-            if (dependentEdges.Count == 0) continue;
+            return new SupplyCut(dependentNodeId, sourceType, 0, Array.Empty<Guid>());
+        }
 
-            foreach (var dependentEdge in dependentEdges)
+        var network = BuildSupplyNetwork(snapshot, ids, index, sourceType);
+        var source = SourceVertex(ids.Count);
+        var flow = network.MaxFlow(source, InVertex(sinkIndex));
+
+        var reachable = network.ResidualReachable(source);
+        var cut = new List<Guid>();
+        for (var i = 0; i < ids.Count; i++)
+        {
+            // A node is in the cut when its internal edge is saturated: its in-side is reachable and its out-side is not.
+            if (snapshot.Nodes[ids[i]].NodeType == sourceType && reachable[InVertex(i)] && !reachable[OutVertex(i)])
             {
-                var dependent = dependentEdge.TargetNodeId;
-
-                // Does the dependent have another incoming edge, from a different node of the
-                // SAME type as 'node', that could stand in if 'node' failed?
-                var alternateSuppliers = snapshot.IncomingEdges(dependent)
-                    .Where(e => e.SourceNodeId != node.Id)
-                    .Select(e => snapshot.Find(e.SourceNodeId))
-                    .Count(n => n is not null && n.NodeType == node.NodeType);
-
-                if (alternateSuppliers == 0)
-                {
-                    singleSourced.Add(node.Id);
-                    break;
-                }
+                cut.Add(ids[i]);
             }
         }
-        return singleSourced;
+
+        return new SupplyCut(dependentNodeId, sourceType, flow, cut);
+    }
+
+    /// <summary>
+    /// Every (dependent, supplier type) pair whose minimum cut has exactly one node. Removing that node alone
+    /// disconnects the dependent from all suppliers of that type, so it is a single point of failure.
+    /// </summary>
+    public IReadOnlyList<SupplyCut> SinglePointsOfFailure(GraphSnapshot snapshot)
+    {
+        var ids = OrderedNodeIds(snapshot);
+        var supplierTypes = ids.Select(id => snapshot.Nodes[id].NodeType).Distinct().OrderBy(t => t).ToList();
+        var findings = new List<SupplyCut>();
+
+        foreach (var sourceType in supplierTypes)
+        {
+            foreach (var dependentId in ids)
+            {
+                if (snapshot.Nodes[dependentId].NodeType == sourceType) continue;
+
+                var cut = MinimumSupplyCut(snapshot, dependentId, sourceType);
+                if (cut.CutSize == SingleNodeCut) findings.Add(cut);
+            }
+        }
+
+        return findings;
+    }
+
+    /// <summary>
+    /// Nodes that are a single point of failure for at least one dependent. Built on SinglePointsOfFailure, which
+    /// uses vertex minimum-cut analysis rather than a local screen, so redundant suppliers are counted
+    /// across multi-hop routes.
+    /// </summary>
+    public IReadOnlyList<Guid> DetectSingleSourcedNodes(GraphSnapshot snapshot) =>
+        SinglePointsOfFailure(snapshot)
+            .SelectMany(cut => cut.CutNodeIds)
+            .Distinct()
+            .OrderBy(id => id)
+            .ToList();
+
+    private const int SingleNodeCut = 1;
+
+    /// <summary>Capacity that stands for "cannot be removed" (structural edges and non-supplier nodes).</summary>
+    private const int Unbounded = int.MaxValue / 4;
+
+    private static List<Guid> OrderedNodeIds(GraphSnapshot snapshot) => snapshot.Nodes.Keys.OrderBy(id => id).ToList();
+
+    private static Dictionary<Guid, int> IndexOf(IReadOnlyList<Guid> ids)
+    {
+        var index = new Dictionary<Guid, int>(ids.Count);
+        for (var i = 0; i < ids.Count; i++) index[ids[i]] = i;
+        return index;
+    }
+
+    private static int InVertex(int nodeIndex) => 2 * nodeIndex;
+
+    private static int OutVertex(int nodeIndex) => 2 * nodeIndex + 1;
+
+    private static int SourceVertex(int nodeCount) => 2 * nodeCount;
+
+    /// <summary>
+    /// Node-split flow network: each node becomes an in-vertex and an out-vertex joined by an edge of capacity 1 when
+    /// the node is of the source type (removable supplier) and unbounded otherwise. Every supplier of the type is fed from
+    /// a super source. Each dependency edge runs from the source's out-vertex to the target's in-vertex.
+    /// </summary>
+    private static FlowNetwork BuildSupplyNetwork(
+        GraphSnapshot snapshot, IReadOnlyList<Guid> ids, IReadOnlyDictionary<Guid, int> index, GraphNodeType sourceType)
+    {
+        var network = new FlowNetwork(2 * ids.Count + 1);
+        var source = SourceVertex(ids.Count);
+
+        for (var i = 0; i < ids.Count; i++)
+        {
+            var isSupplier = snapshot.Nodes[ids[i]].NodeType == sourceType;
+            network.AddEdge(InVertex(i), OutVertex(i), isSupplier ? 1 : Unbounded);
+            if (isSupplier) network.AddEdge(source, InVertex(i), Unbounded);
+        }
+
+        foreach (var edge in snapshot.Edges)
+        {
+            if (!index.TryGetValue(edge.SourceNodeId, out var from) || !index.TryGetValue(edge.TargetNodeId, out var to)) continue;
+            network.AddEdge(OutVertex(from), InVertex(to), Unbounded);
+        }
+
+        return network;
     }
 }

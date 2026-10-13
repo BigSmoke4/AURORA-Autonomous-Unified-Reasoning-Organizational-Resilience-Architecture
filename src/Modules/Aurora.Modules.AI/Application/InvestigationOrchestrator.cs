@@ -89,9 +89,9 @@ public sealed class InvestigationOrchestrator
         sw.Restart();
         var isSingleSourced = _traversal.DetectSingleSourcedNodes(snapshot).Contains(targetNodeId);
         sw.Stop();
-        investigation.AddEvidence("DetectSingleSourcedNodes",
+        investigation.AddEvidence("SupplyMinimumCut",
             isSingleSourced
-                ? $"{targetNode.DisplayName} is single-sourced: at least one dependent has no other supplier of its type."
+                ? $"{targetNode.DisplayName} is a single point of failure: removing it alone cuts at least one dependent off from every supplier of its type."
                 : $"{targetNode.DisplayName} is not flagged as single-sourced under current redundancy.",
             JsonSerializer.Serialize(new { IsSingleSourced = isSingleSourced }),
             sw.Elapsed);
@@ -138,6 +138,6 @@ public sealed class InvestigationOrchestrator
     private static string BuildFallbackNarrative(string targetName, int downstreamCount, bool isSingleSourced, decimal riskScore, decimal revenueAtRisk) =>
         $"{targetName} has {downstreamCount} downstream dependent(s) in the enterprise graph, " +
         $"putting an estimated {revenueAtRisk:C0} in revenue exposure at risk if it fails. " +
-        (isSingleSourced ? $"{targetName} is single-sourced: at least one dependent has no other supplier of its type. " : string.Empty) +
+        (isSingleSourced ? $"{targetName} is a single point of failure: removing it alone cuts at least one dependent off from every supplier of its type. " : string.Empty) +
         $"Computed risk score: {riskScore:0.0}/100.";
 }
