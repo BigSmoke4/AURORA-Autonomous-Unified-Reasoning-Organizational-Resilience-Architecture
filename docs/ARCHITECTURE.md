@@ -64,6 +64,11 @@ Tenant isolation is enforced in three layers:
    the current tenant. With no tenant (anonymous request or design-time tool) the filter compares
    against `Guid.Empty`, which matches no rows. Administrative reads that need rows from every tenant
    must call `IgnoreQueryFilters()` explicitly. The seeder does this when it counts graph edges.
+   `AuditEntry` is the one exception to the `ITenantScoped` rule, because platform-level sign-in events
+   have no organization. It has its own filter, written explicitly in `OnModelCreating`, that matches
+   only the caller's organization. Those null-organization events are not visible to any tenant.
+   Child rows without an organization id (simulation steps and results, AI evidence) are reached only
+   through their tenant-scoped parents.
 3. **Explicit scope.** Repositories also take an `organizationId` parameter and filter by it, so
    correctness does not depend on the filter alone. `CurrentOrganizationAccessor` resolves the
    caller's organization for controllers.
