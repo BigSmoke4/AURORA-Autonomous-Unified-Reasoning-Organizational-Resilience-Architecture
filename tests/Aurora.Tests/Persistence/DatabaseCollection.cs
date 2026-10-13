@@ -1,3 +1,5 @@
+using Xunit;
+
 namespace Aurora.Tests.Persistence;
 
 /// <summary>
