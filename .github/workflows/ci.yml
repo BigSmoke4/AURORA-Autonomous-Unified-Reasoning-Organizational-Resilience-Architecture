@@ -63,6 +63,38 @@ jobs:
           echo "::add-matcher::.github/matchers/msbuild.json"
           dotnet build Aurora.sln --no-restore -c Release -warnaserror
 
+      - name: TEMP probe model diff
+        continue-on-error: true
+        run: |
+          "$HOME/.dotnet/tools/dotnet-ef" migrations add ProbeDiff --no-build --project src/Web/Aurora.Web/Aurora.Web.csproj --startup-project src/Web/Aurora.Web/Aurora.Web.csproj --output-dir ProbeOut > probe-add.txt 2>&1 || true
+          echo "migrations add exit printed above"
+          python3 - <<'PY2'
+import glob, re
+text = open("probe-add.txt", encoding="utf-8", errors="replace").read()
+lines = [l for l in text.splitlines() if l.strip()]
+def emit(msg):
+    msg = msg.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print("::error title=probe::" + msg)
+emit("ADD OUTPUT tail: " + " | ".join(lines[-6:])[-3000:])
+for f in glob.glob("src/Web/Aurora.Web/ProbeOut/*.cs") + glob.glob("src/Web/Aurora.Web/Migrations/*Probe*.cs"):
+    if f.endswith("Designer.cs"):
+        continue
+    s = open(f, encoding="utf-8").read()
+    m = re.search(r"Up\(MigrationBuilder migrationBuilder\)(.*?)protected override void Down", s, re.S)
+    body = re.sub(r"\s+", " ", m.group(1) if m else s)
+    ops = [o.strip() for o in body.split("migrationBuilder.") if o.strip()]
+    emit("FILE " + f + " ops=" + str(len(ops)))
+    chunk = ""
+    for o in ops:
+        piece = "[" + o + "] "
+        if len(chunk) + len(piece) > 3000:
+            emit(chunk)
+            chunk = ""
+        chunk += piece
+    if chunk:
+        emit(chunk)
+PY2
+
       - name: Verify EF Core model matches migrations
         env:
           ConnectionStrings__AuroraDb: ${{ env.AURORA_TEST_CONNECTION }}
