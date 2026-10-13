@@ -77,6 +77,16 @@ The integration test checks that a second tenant sees no decisions, audit entrie
 records, and that an anonymous context sees none either. It also checks that the unfiltered count
 shows the rows exist, so the zero counts mean something.
 
+
+## Transport and container
+
+- **HTTPS.** `Security:RequireHttps` (default `true`) controls the HTTPS redirect and HSTS. Auth cookies are
+  `Secure` outside Development. The local Compose stack sets the flag to `false` because it serves HTTP on
+  localhost. Shared deployments must terminate TLS in front of the app and keep the default.
+- **Container.** The image runs as the unprivileged `app` user from the aspnet base image. `.dockerignore`
+  excludes `.env`, build output, and test results.
+- **CI.** The `docker-build` job builds the image on every push, so a broken Dockerfile fails CI.
+
 ## Optimistic concurrency
 
 `Entity.Version` is a `long` (PostgreSQL `bigint`) on every entity, and it is a concurrency token in

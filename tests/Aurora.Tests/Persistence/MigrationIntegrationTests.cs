@@ -20,9 +20,9 @@ namespace Aurora.Tests.Persistence;
 /// AURORA_TEST_CONNECTION. The database is dropped and recreated, so its name must contain "test".
 /// </summary>
 [Trait("Category", "Integration")]
+[Collection(DatabaseCollection.Name)]
 public sealed class MigrationIntegrationTests
 {
-    private const string ConnectionVariable = "AURORA_TEST_CONNECTION";
     private const string Phase2MigrationId = "20261013120000_Phase2AuditAnalysisDecisionsAi";
     private const string PreviousMigrationId = "20260901062452_InitialCreate";
 
@@ -112,24 +112,7 @@ public sealed class MigrationIntegrationTests
     private static DbContextOptions<AuroraDbContext> CreateOptions() =>
         new DbContextOptionsBuilder<AuroraDbContext>().UseNpgsql(ReadDisposableDatabaseConnection()).Options;
 
-    private static string ReadDisposableDatabaseConnection()
-    {
-        var connectionString = Environment.GetEnvironmentVariable(ConnectionVariable);
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            throw new InvalidOperationException(
-                $"Set {ConnectionVariable} to a disposable PostgreSQL database whose name contains 'test'.");
-        }
-
-        var database = new NpgsqlConnectionStringBuilder(connectionString).Database ?? string.Empty;
-        if (!database.Contains("test", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                "The integration database name must contain 'test' because these tests drop and recreate it.");
-        }
-
-        return connectionString;
-    }
+    private static string ReadDisposableDatabaseConnection() => TestDatabase.ReadDisposableDatabaseConnection();
 
     private sealed class FixedTenant(Guid? organizationId) : ITenantContext
     {

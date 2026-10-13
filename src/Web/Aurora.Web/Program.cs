@@ -196,10 +196,14 @@ builder.Services.AddOpenTelemetry()
 
 var app = builder.Build();
 
+// HTTPS redirection and HSTS assume TLS terminates in front of, or inside, this process. The local
+// Docker Compose stack serves plain HTTP on localhost and turns this off; any shared deployment keeps it on.
+var requireHttps = builder.Configuration.GetValue("Security:RequireHttps", true);
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+    if (requireHttps) app.UseHsts();
 }
 else
 {
@@ -207,7 +211,7 @@ else
 }
 
 app.UseSerilogRequestLogging();
-app.UseHttpsRedirection();
+if (requireHttps) app.UseHttpsRedirection();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseStaticFiles();
 app.UseRequestLocalization();

@@ -31,6 +31,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      # Local stack only: it serves plain HTTP on localhost. Any shared deployment must sit behind TLS
+      # and leave this at its default (true).
+      Security__RequireHttps: "false"
       ConnectionStrings__AuroraDb: "Host=postgres;Port=5432;Database=aurora;Username=aurora;Password=${AURORA_DB_PASSWORD:?Set AURORA_DB_PASSWORD in .env}"
       Seed__AdminPassword: ${AURORA_ADMIN_PASSWORD:-}
       AI__Provider: ${AURORA_AI_PROVIDER:-None}

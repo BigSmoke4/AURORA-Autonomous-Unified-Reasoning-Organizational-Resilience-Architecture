@@ -33,4 +33,7 @@ COPY --from=build /app/publish .
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
+# The aspnet base image ships an unprivileged "app" user. Run as it, not root.
+USER app
+
 ENTRYPOINT ["dotnet", "Aurora.Web.dll"]
