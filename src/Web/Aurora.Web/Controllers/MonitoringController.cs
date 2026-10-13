@@ -92,12 +92,12 @@ public class MonitoringController : ModuleControllerBase
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = AuroraPermissions.MonitoringManage)]
-    public async Task<IActionResult> QueueFeedIngestion([FromServices] BackgroundJobQueue queue, CancellationToken ct)
+    public async Task<IActionResult> QueueFeedIngestion([FromServices] BackgroundJobQueue queue, [FromServices] FeedSourceCatalog sources, CancellationToken ct)
     {
         var org = await CurrentOrganizationAsync(ct);
         if (org is null) return NotFound();
 
-        queue.Enqueue(org.Id, MetricFeedJobHandler.JobKind, MetricFeedJobHandler.BuildPayload(FixtureMetricFeedAdapter.Key));
+        queue.Enqueue(org.Id, MetricFeedJobHandler.JobKind, MetricFeedJobHandler.BuildPayload(sources.MetricSourceKey));
         await Db.SaveChangesAsync(ct);
         Success("Feed ingestion queued. Its result appears under Background jobs when it finishes.");
         return RedirectToAction(nameof(Index));

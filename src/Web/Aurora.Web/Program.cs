@@ -24,6 +24,7 @@ using Aurora.Web.Data;
 using Aurora.Web.Data.Seed;
 using Aurora.Web.Hubs;
 using Aurora.Web.Infrastructure.Events;
+using Aurora.Web.Integration.Feeds;
 using Aurora.Web.Infrastructure;
 using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
@@ -136,7 +137,21 @@ builder.Services.Configure<Aurora.Web.Infrastructure.Jobs.BackgroundJobOptions>(
 builder.Services.AddScoped<Aurora.Web.Infrastructure.Jobs.BackgroundJobQueue>();
 builder.Services.AddScoped<Aurora.Web.Infrastructure.Jobs.IBackgroundJobHandler, Aurora.Web.Integration.Feeds.MetricFeedJobHandler>();
 builder.Services.AddScoped<Aurora.Web.Integration.Feeds.IExternalFeedAdapter, Aurora.Web.Integration.Feeds.FixtureMetricFeedAdapter>();
+builder.Services.AddScoped<Aurora.Web.Integration.Feeds.IExternalFeedAdapter, Aurora.Web.Integration.Feeds.FixtureVulnerabilityFeedAdapter>();
 builder.Services.AddScoped<Aurora.Web.Integration.Feeds.MetricFeedIngestor>();
+builder.Services.AddScoped<Aurora.Web.Integration.Feeds.VulnerabilityFeedIngestor>();
+builder.Services.AddScoped<Aurora.Web.Infrastructure.Jobs.IBackgroundJobHandler, Aurora.Web.Integration.Feeds.VulnerabilityFeedJobHandler>();
+builder.Services.AddSingleton<Aurora.Web.Integration.Feeds.FeedSourceCatalog>();
+
+// Live feed adapters are registered only when used, but their settings are validated at startup, so a feed that is
+// misconfigured stops the host from starting rather than failing on the first job.
+builder.Services.AddOptions<ExternalFeedOptions>()
+    .Bind(builder.Configuration.GetSection(ExternalFeedOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<ExternalFeedOptions>, ExternalFeedOptionsValidator>();
+var startupFeeds = builder.Configuration.GetSection(ExternalFeedOptions.SectionName).Get<ExternalFeedOptions>() ?? new ExternalFeedOptions();
+ConfigureLiveFeed<HttpMetricFeedAdapter>(builder.Services, startupFeeds.Metrics);
+ConfigureLiveFeed<HttpVulnerabilityFeedAdapter>(builder.Services, startupFeeds.Vulnerabilities);
 builder.Services.AddScoped<Aurora.Web.Services.GraphSnapshotStore>();
 builder.Services.AddScoped<Aurora.Web.Services.MetricReadingRecorder>();
 builder.Services.AddScoped<Aurora.Web.Services.DecisionDebateService>();
@@ -198,9 +213,33 @@ builder.Services.AddHttpClient<OpenAiCompatibleAiProvider>((sp, client) =>
         options.TotalRequestTimeout.Timeout = aiTimeout * AiTotalTimeoutMultiplier;
         options.CircuitBreaker.SamplingDuration = aiTimeout * AiCircuitSamplingMultiplier;
     });
-builder.Services.AddScoped<IAiProvider>(sp => sp.GetRequiredService<AiOptions>().IsLlmProviderConfigured
-    ? sp.GetRequiredService<OpenAiCompatibleAiProvider>()
-    : new NullAiProvider());
+// Narratives are cached by the evidence they were generated from. Redis holds the cache when a connection string is
+// configured, and a process-local cache is used otherwise (see CachingAiProvider).
+var redisConnection = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrWhiteSpace(redisConnection))
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnection;
+        options.InstanceName = SharedCacheInstanceName;
+    });
+}
+else
+{
+    builder.Services.AddDistributedMemoryCache();
+}
+
+builder.Services.AddScoped<IAiProvider>(sp =>
+{
+    var ai = sp.GetRequiredService<AiOptions>();
+    if (!ai.IsLlmProviderConfigured) return new NullAiProvider();
+
+    return new Aurora.Web.Infrastructure.Ai.CachingAiProvider(
+        sp.GetRequiredService<OpenAiCompatibleAiProvider>(),
+        sp.GetRequiredService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>(),
+        TimeSpan.FromMinutes(ai.CacheMinutes),
+        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Aurora.Web.Infrastructure.Ai.CachingAiProvider>>());
+});
 
 // ---------- Phase 2 modules: audit, analysis records, decisions, deterministic analysis engines ----------
 builder.Services.AddScoped<IAuditRepository, AuditRepository>();
@@ -272,5 +311,33 @@ await DbInitializer.SeedAsync(app.Services);
 
 app.Run();
 
+/// <summary>
+/// Registers a live feed adapter as a typed HTTP client. The base address is set only when the endpoint is configured.
+/// Each attempt is bounded, all attempts together are bounded by a total budget, and retries and the circuit breaker
+/// apply to throttling (HTTP 429) and server errors, so a rate-limited source is retried rather than dropped.
+/// </summary>
+static void ConfigureLiveFeed<TAdapter>(IServiceCollection services, FeedEndpointOptions endpoint)
+    where TAdapter : class, IExternalFeedAdapter
+{
+    const int TotalTimeoutMultiplier = 2;
+    const int CircuitSamplingMultiplier = 3;
+
+    services.AddHttpClient<TAdapter>(client =>
+        {
+            if (endpoint.IsConfigured) client.BaseAddress = new Uri(endpoint.BaseUrl!.TrimEnd('/') + "/");
+        })
+        .AddStandardResilienceHandler(options =>
+        {
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(endpoint.TimeoutSeconds);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(endpoint.TimeoutSeconds * TotalTimeoutMultiplier);
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(endpoint.TimeoutSeconds * CircuitSamplingMultiplier);
+        });
+    services.AddScoped<IExternalFeedAdapter>(sp => sp.GetRequiredService<TAdapter>());
+}
+
 /// <summary>Exposed so integration tests can host the application with WebApplicationFactory.</summary>
-public partial class Program { }
+public partial class Program
+{
+    /// <summary>Prefix for every key this application writes to a shared cache, so several apps can share one Redis.</summary>
+    public const string SharedCacheInstanceName = "aurora:";
+}

@@ -33,6 +33,7 @@ public static class AuditActions
     public const string SupplyPositionRecorded = "SupplyChain.PositionRecorded";
     public const string ReportExported = "Reporting.Exported";
     public const string MetricFeedIngested = "Monitoring.FeedIngested";
+    public const string VulnerabilityFeedImported = "Technology.VulnerabilityFeedImported";
     public const string GraphSnapshotCaptured = "Graph.SnapshotCaptured";
     public const string DocumentIndexed = "Knowledge.DocumentIndexed";
     public const string DecisionDebated = "Decision.Debated";

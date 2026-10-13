@@ -59,6 +59,7 @@ public sealed class PatchPolicyFormValidator : AbstractValidator<PatchPolicyForm
         RuleFor(f => f.TechnologyAssetId).NotEmpty();
         RuleFor(f => f.LastPatchedOn).NotEmpty();
         RuleFor(f => f.PatchSlaDays).InclusiveBetween(PatchPolicy.MinSlaDays, PatchPolicy.MaxSlaDays);
+        RuleFor(f => f.SoftwareProduct).MaximumLength(PatchPolicy.SoftwareProductMaxLength);
     }
 }
 

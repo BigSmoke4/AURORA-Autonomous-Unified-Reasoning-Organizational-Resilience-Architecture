@@ -16,7 +16,7 @@ public sealed class MetricFeedJobHandler(IEnumerable<IExternalFeedAdapter> adapt
     {
         var payload = JsonSerializer.Deserialize<FeedJobPayload>(payloadJson)
             ?? throw new InvalidOperationException("The feed job payload is empty.");
-        var adapter = adapters.FirstOrDefault(a => a.SourceKey == payload.SourceKey)
+        var adapter = adapters.FirstOrDefault(a => a.Kind == FeedKind.Metrics && a.SourceKey == payload.SourceKey)
             ?? throw new InvalidOperationException($"No feed adapter is registered for '{payload.SourceKey}'.");
 
         var body = await adapter.FetchAsync(ct);

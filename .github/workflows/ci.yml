@@ -32,11 +32,21 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "1"
       AURORA_TEST_CONNECTION: "Host=localhost;Port=5432;Database=aurora_test;Username=aurora;Password=ci_only_password"
+      AURORA_TEST_REDIS: "localhost:6379"
 
     steps:
       - name: Checkout
@@ -150,6 +160,15 @@ jobs:
           headers=$(curl --silent --head http://localhost:8080/Account/Login)
           echo "$headers" | grep -qi "^content-security-policy:.*script-src 'self'"
           echo "$headers" | grep -qi "^x-content-type-options: nosniff"
+
+      - name: Load and soak check
+        run: |
+          docker run --rm --network host \
+            -v "$GITHUB_WORKSPACE/tests/load:/scripts:ro" \
+            -e BASE_URL=http://localhost:8080 \
+            -e DURATION=2m \
+            -e RATE=20 \
+            grafana/k6:latest run /scripts/aurora-smoke.js
 
       - name: Container logs
         if: always()

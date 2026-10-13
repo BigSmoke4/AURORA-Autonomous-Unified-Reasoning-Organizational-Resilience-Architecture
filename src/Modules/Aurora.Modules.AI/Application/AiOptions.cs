@@ -20,6 +20,9 @@ public sealed class AiOptions
 
     public int TimeoutSeconds { get; set; } = 20;
 
+    /// <summary>How long an identical explanation is reused before the model is called again. Zero disables the cache.</summary>
+    public int CacheMinutes { get; set; } = 60;
+
     public bool IsLlmProviderConfigured =>
         string.Equals(Provider, "OpenAICompatible", StringComparison.OrdinalIgnoreCase)
         && !string.IsNullOrWhiteSpace(Endpoint)

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "advisories": [
+    {
+      "cveId": "CVE-2026-1001",
+      "product": "Acme ERP Server",
+      "cvss": 9.8,
+      "publishedOn": "2026-09-02",
+      "summary": "Remote code execution through the unauthenticated import endpoint."
+    },
+    {
+      "cveId": "CVE-2026-1002",
+      "product": "Acme ERP Server",
+      "cvss": 5.3,
+      "publishedOn": "2026-09-20",
+      "summary": "Information disclosure in the audit log export."
+    },
+    {
+      "cveId": "CVE-2026-1003",
+      "product": "Plant Historian",
+      "cvss": 7.5,
+      "publishedOn": "2026-08-14",
+      "summary": "Denial of service through malformed tag subscriptions."
+    }
+  ]
+}

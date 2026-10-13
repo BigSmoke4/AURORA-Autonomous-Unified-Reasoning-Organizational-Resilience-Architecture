@@ -11,6 +11,8 @@ public sealed class FixtureMetricFeedAdapter(IWebHostEnvironment environment) : 
 
     public string SourceKey => Key;
 
+    public FeedKind Kind => FeedKind.Metrics;
+
     public Task<string> FetchAsync(CancellationToken ct)
     {
         var path = Path.Combine(environment.ContentRootPath, "Data", "Feeds", "Fixtures", FixtureFileName);

@@ -1467,6 +1467,10 @@ namespace Aurora.Web.Migrations
                     b.Property<int>("PatchSlaDays")
                         .HasColumnType("integer");
 
+                    b.Property<string>("SoftwareProduct")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<Guid>("TechnologyAssetId")
                         .HasColumnType("uuid");
 
@@ -1482,6 +1486,59 @@ namespace Aurora.Web.Migrations
                     b.HasIndex("OrganizationId");
 
                     b.ToTable("TechnologyPatchPolicies", (string)null);
+                });
+
+            modelBuilder.Entity("Aurora.Modules.Technology.Domain.VulnerabilityAdvisory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CveId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("CvssScore")
+                        .HasColumnType("decimal(3,1)");
+
+                    b.Property<DateTime>("ImportedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("PublishedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "ProductName");
+
+                    b.HasIndex("OrganizationId", "CveId")
+                        .IsUnique();
+
+                    b.ToTable("VulnerabilityAdvisories", (string)null);
                 });
 
             modelBuilder.Entity("Aurora.Modules.Markets.Domain.MarketObservation", b =>
