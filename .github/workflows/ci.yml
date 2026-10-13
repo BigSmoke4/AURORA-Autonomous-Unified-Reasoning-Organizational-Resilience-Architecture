@@ -66,6 +66,7 @@ jobs:
       - name: TEMP probe model diff
         continue-on-error: true
         run: |
+          dotnet tool install --global dotnet-ef --version 10.0.12
           "$HOME/.dotnet/tools/dotnet-ef" migrations add ProbeDiff --no-build --project src/Web/Aurora.Web/Aurora.Web.csproj --startup-project src/Web/Aurora.Web/Aurora.Web.csproj --output-dir ProbeOut > probe-add.txt 2>&1 || true
           python3 .github/scripts/probe_model_diff.py
 
