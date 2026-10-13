@@ -65,6 +65,8 @@ jobs:
 
       - name: TEMP probe model diff
         continue-on-error: true
+        env:
+          ConnectionStrings__AuroraDb: ${{ env.AURORA_TEST_CONNECTION }}
         run: |
           dotnet tool install --global dotnet-ef --version 10.0.12
           "$HOME/.dotnet/tools/dotnet-ef" migrations add ProbeDiff --project src/Web/Aurora.Web/Aurora.Web.csproj --startup-project src/Web/Aurora.Web/Aurora.Web.csproj --output-dir ProbeOut > probe-add.txt 2>&1 || true
