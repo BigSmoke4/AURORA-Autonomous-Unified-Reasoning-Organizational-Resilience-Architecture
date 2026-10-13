@@ -117,7 +117,7 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
 
             if (typeof(Entity).IsAssignableFrom(entityType.ClrType))
             {
-                entityType.FindProperty(nameof(Entity.Version))?.SetIsConcurrencyToken(true);
+                builder.Entity(entityType.ClrType).Property(nameof(Entity.Version)).IsConcurrencyToken();
             }
         }
     }
@@ -150,7 +150,9 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
             if (entry.State != EntityState.Modified) continue;
 
             var version = entry.Property(nameof(Entity.Version));
-            version.CurrentValue = (long)version.OriginalValue + 1L;
+            var original = (long?)version.OriginalValue
+                ?? throw new InvalidOperationException("A modified entity has no original Version value.");
+            version.CurrentValue = original + 1L;
         }
     }
 }
