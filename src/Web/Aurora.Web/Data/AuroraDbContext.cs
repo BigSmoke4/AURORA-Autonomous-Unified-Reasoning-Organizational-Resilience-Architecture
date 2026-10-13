@@ -21,6 +21,8 @@ using Aurora.Modules.SupplyChain.Domain;
 using Aurora.Modules.Technology.Domain;
 using Aurora.Modules.Workforce.Domain;
 using Aurora.Shared.Kernel;
+using Aurora.Web.Data.Outbox;
+using Aurora.Web.Infrastructure.Events;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -104,6 +106,9 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
     public DbSet<Alert> Alerts => Set<Alert>();
     public DbSet<InventoryPosition> InventoryPositions => Set<InventoryPosition>();
 
+    // Transactional outbox for domain events (see Data/Outbox and Infrastructure/Events).
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -129,6 +134,7 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
         builder.ApplyConfigurationsFromAssembly(typeof(MetricDefinition).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(Alert).Assembly);
         builder.ApplyConfigurationsFromAssembly(typeof(InventoryPosition).Assembly);
+        builder.ApplyConfiguration(new OutboxMessageConfiguration());
 
         // Identity tables get an "Aurora" prefix so they're visually grouped in the schema.
         builder.Entity<ApplicationUser>().ToTable("AuroraUsers");
@@ -165,14 +171,38 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        StageDomainEvents();
         StampVersions();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        StageDomainEvents();
         StampVersions();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>
+    /// Copies the events raised by aggregates into the outbox. The outbox rows are added before the save, so they
+    /// commit in the same transaction as the change that raised them.
+    /// </summary>
+    private void StageDomainEvents()
+    {
+        var aggregates = ChangeTracker.Entries<AggregateRoot>().Select(entry => entry.Entity).ToList();
+        foreach (var aggregate in aggregates)
+        {
+            foreach (var domainEvent in aggregate.DomainEvents)
+            {
+                OutboxMessages.Add(new OutboxMessage(
+                    domainEvent.OrganizationId,
+                    DomainEventCatalog.NameOf(domainEvent),
+                    DomainEventCatalog.Serialize(domainEvent),
+                    domainEvent.OccurredOnUtc));
+            }
+
+            aggregate.ClearDomainEvents();
+        }
     }
 
     /// <summary>

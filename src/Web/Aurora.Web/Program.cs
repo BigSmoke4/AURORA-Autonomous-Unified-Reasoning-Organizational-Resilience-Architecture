@@ -23,6 +23,7 @@ using Aurora.Shared.Observability;
 using Aurora.Web.Data;
 using Aurora.Web.Data.Seed;
 using Aurora.Web.Hubs;
+using Aurora.Web.Infrastructure.Events;
 using Aurora.Web.Infrastructure;
 using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
@@ -125,6 +126,12 @@ if (!string.IsNullOrWhiteSpace(dataProtectionKeyDirectory))
         .SetApplicationName("Aurora");
 }
 builder.Services.AddSignalR();
+
+// ---------- Domain events: transactional outbox, dispatched in the background ----------
+builder.Services.Configure<OutboxOptions>(builder.Configuration.GetSection(OutboxOptions.SectionName));
+builder.Services.AddScoped<IDomainEventHandler, DomainEventLogHandler>();
+builder.Services.AddScoped<IDomainEventHandler, OrganizationNotificationHandler>();
+builder.Services.AddHostedService<OutboxDispatcher>();
 
 // Decimal values (scores, percentages, forecast levels) are rendered and bound with invariant
 // culture, so form round-trips never depend on the host's locale.
@@ -244,6 +251,7 @@ app.UseAuthorization();
 
 app.MapControllerRoute(name: "default", pattern: "{controller=CommandCenter}/{action=Index}/{id?}");
 app.MapHub<SimulationHub>("/hubs/simulation");
+app.MapHub<OrganizationHub>("/hubs/organization");
 
 // Liveness only proves the process is up; readiness also proves PostgreSQL is reachable (spec section 69).
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });

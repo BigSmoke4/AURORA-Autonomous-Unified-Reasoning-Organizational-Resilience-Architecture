@@ -20,7 +20,7 @@ public enum AlertStatus
 /// An operational alert with a strict lifecycle: Open to Acknowledged to Resolved, or Open to Resolved.
 /// Acknowledging is only allowed from Open, and resolving is not allowed once resolved (spec section 28).
 /// </summary>
-public class Alert : Entity, ITenantScoped
+public class Alert : AggregateRoot, ITenantScoped
 {
     public const int SourceKeyMaxLength = 200;
     public const int TitleMaxLength = 300;
@@ -50,6 +50,7 @@ public class Alert : Entity, ITenantScoped
         Severity = severity;
         Status = AlertStatus.Open;
         RaisedAtUtc = DomainGuard.ToUtc(raisedAtUtc);
+        RaiseDomainEvent(new AlertRaised(OrganizationId, Id, Title, Severity, RaisedAtUtc));
     }
 
     public void Acknowledge(Guid userId, DateTime nowUtc)
@@ -70,5 +71,6 @@ public class Alert : Entity, ITenantScoped
         Status = AlertStatus.Resolved;
         ResolvedAtUtc = DomainGuard.ToUtc(nowUtc);
         Touch();
+        RaiseDomainEvent(new AlertResolved(OrganizationId, Id, ResolvedAtUtc.Value));
     }
 }

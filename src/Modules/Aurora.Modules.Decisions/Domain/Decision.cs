@@ -91,6 +91,7 @@ public class Decision : AggregateRoot, ITenantScoped
         ApproverId = approverId;
         ApprovedAtUtc = DateTime.UtcNow;
         Touch();
+        RaiseDomainEvent(new DecisionStateChanged(OrganizationId, Id, DecisionChanges.Approved, ApprovedAtUtc.Value));
     }
 
     public void Reject(Guid approverId)
@@ -102,6 +103,7 @@ public class Decision : AggregateRoot, ITenantScoped
         ApproverId = approverId;
         ApprovedAtUtc = DateTime.UtcNow;
         Touch();
+        RaiseDomainEvent(new DecisionStateChanged(OrganizationId, Id, DecisionChanges.Rejected, ApprovedAtUtc.Value));
     }
 
     /// <summary>Separation of duties: the person who proposed a decision cannot approve or reject it.</summary>
@@ -119,6 +121,7 @@ public class Decision : AggregateRoot, ITenantScoped
             throw new InvalidOperationException("Execution has already started for this decision.");
         ExecutionState = DecisionExecutionState.InProgress;
         Touch();
+        RaiseDomainEvent(new DecisionStateChanged(OrganizationId, Id, DecisionChanges.ExecutionStarted, DateTime.UtcNow));
     }
 
     /// <summary>Records what actually happened and computes the prediction error against the forecast.</summary>
@@ -136,5 +139,6 @@ public class Decision : AggregateRoot, ITenantScoped
         ActualOutcomeSummary = actualOutcomeSummary;
         ExecutionState = DecisionExecutionState.Executed;
         Touch();
+        RaiseDomainEvent(new DecisionStateChanged(OrganizationId, Id, DecisionChanges.OutcomeRecorded, UpdatedAtUtc!.Value));
     }
 }

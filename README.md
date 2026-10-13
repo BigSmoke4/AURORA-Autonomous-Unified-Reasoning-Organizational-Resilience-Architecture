@@ -27,8 +27,9 @@ and OpenTelemetry, as a modular monolith on .NET 10.
 | Identity, RBAC, sign-in | `Aurora.Modules.Identity` | ASP.NET Core Identity with lockout. Granular permission claims in `AuroraPermissions`. Deactivated users cannot sign in. |
 | Multi-tenancy | `ITenantScoped`, `AuroraDbContext` query filters, `CurrentOrganizationAccessor` | The tenant is read only from the signed-in principal's claim. With no tenant the filter matches no rows. |
 | Optimistic concurrency | `Entity.Version` (`bigint`) | Every entity's `Version` is a concurrency token and is incremented on update in `SaveChanges`. |
+| Domain events and outbox | `AggregateRoot`, `OutboxMessage`, `OutboxDispatcher`, `OrganizationHub` | Decision and alert transitions are written to the outbox in the same transaction as the change. A background dispatcher delivers them to idempotent handlers (at least once) and pushes notifications over SignalR. Integration tested against PostgreSQL. |
 | Digital twin and knowledge graph | `Aurora.Modules.DigitalTwin`, `Aurora.Modules.Graph` | Suppliers, factories, warehouses, products, customers, and technology assets are projected into a graph. |
-| Graph intelligence | `GraphTraversalService` | breadth-first traversal, Dijkstra shortest dependency path, upstream and downstream impact with max-product propagation, and a single-sourced node screen. Unit tested. |
+| Graph intelligence | `GraphTraversalService` | breadth-first traversal, Dijkstra shortest dependency path, upstream and downstream impact with max-product propagation, and vertex minimum-cut analysis (Edmonds-Karp max-flow) for single points of failure. Unit tested. |
 | Deterministic simulation (`aurora-sim-v1`) | `SimulationEngine` | Day-by-day impact and revenue propagation over the graph. The model is documented in ADR 005. |
 | Counterfactual analysis | `CounterfactualAnalyzer` | Compares a scenario with and without a mitigation share on the target's outgoing dependencies. Reports avoided revenue impact and the peak-impact reduction. |
 | Risk scoring | `Aurora.Modules.Risk` | A configurable weighted formula (`Risk:ScoringWeights`). |
@@ -54,14 +55,9 @@ and OpenTelemetry, as a modular monolith on .NET 10.
 
 These parts of the specification are **not** built. None is faked, and none has a placeholder class.
 
-- **Domain events.** There is no domain event infrastructure. The earlier `Events/` code was removed
-  because nothing used it. Module side effects are direct calls, and audit entries are written
-  synchronously.
 - **Module depth.** The Phase 3 modules have no repository layer. Their controllers use `AuroraDbContext` directly (ADR 007). Customers and Reporting have no tables. Monitoring readings are entered by hand, with no sensor or feed ingestion, and patch policies are not linked to vulnerability feeds.
 - **Historical counterfactuals.** Analyses run against the current graph. There are no historical
   graph snapshots, so "what if this had happened six months ago" is not supported.
-- **Minimum-cut analysis.** The single-sourced node screen is a local heuristic. It is not a
-  minimum-cut or max-flow computation.
 - **Knowledge retrieval (RAG), document ingestion, and multi-agent debate.**
 - **Background job queue.** Simulation and analysis run inline. Progress is pushed by SignalR while the request runs. A queue is
   a planned, non-breaking change (ADR 005).
@@ -207,11 +203,10 @@ The provider never receives tools and never computes numbers.
 
 ## Roadmap
 
-1. Domain events, with an outbox, once a second consumer needs them.
-2. Sensor and feed ingestion for Monitoring and Technology, and repository layers for the Phase 3 modules once a second consumer needs them.
-3. Historical graph snapshots, which enable point-in-time counterfactuals.
-4. Retrieval over organizational documents, feeding the same evidence model as the graph tools.
-5. A background job queue for long-running simulations and analyses (ADR 005).
+1. Sensor and feed ingestion for Monitoring and Technology, and repository layers for the Phase 3 modules once a second consumer needs them.
+2. Historical graph snapshots, which enable point-in-time counterfactuals.
+3. Retrieval over organizational documents, feeding the same evidence model as the graph tools.
+4. A background job queue for long-running simulations and analyses (ADR 005).
 
 ## License
 

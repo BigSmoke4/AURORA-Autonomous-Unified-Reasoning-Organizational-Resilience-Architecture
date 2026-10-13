@@ -26,6 +26,7 @@ public sealed class MigrationIntegrationTests
     private const string Phase2MigrationId = "20261013120000_Phase2AuditAnalysisDecisionsAi";
     private const string PreviousMigrationId = "20260901062452_InitialCreate";
     private const string Phase3MigrationId = "20261013140000_Phase3OperationalModules";
+    private const string Phase4MigrationId = "20261013160000_Phase4DomainEvents";
 
     [Fact]
     public async Task Phase2Migration_AppliesAndRevertsCleanly()
@@ -65,6 +66,26 @@ public sealed class MigrationIntegrationTests
 
         await db.Database.MigrateAsync();
         Assert.Contains(Phase3MigrationId, await db.Database.GetAppliedMigrationsAsync());
+    }
+
+    [Fact]
+    public async Task Phase4Migration_AppliesAndRevertsCleanly()
+    {
+        var options = CreateOptions();
+
+        await using var db = new AuroraDbContext(options, new FixedTenant(null));
+        await db.Database.EnsureDeletedAsync();
+        await db.Database.MigrateAsync();
+
+        Assert.Empty(await db.Database.GetPendingMigrationsAsync());
+        Assert.Contains(Phase4MigrationId, await db.Database.GetAppliedMigrationsAsync());
+
+        var migrator = ((IInfrastructure<IServiceProvider>)db.Database).Instance.GetRequiredService<IMigrator>();
+        await migrator.MigrateAsync(Phase3MigrationId);
+        Assert.DoesNotContain(Phase4MigrationId, await db.Database.GetAppliedMigrationsAsync());
+
+        await db.Database.MigrateAsync();
+        Assert.Contains(Phase4MigrationId, await db.Database.GetAppliedMigrationsAsync());
     }
 
     [Fact]

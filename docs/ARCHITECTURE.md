@@ -122,7 +122,7 @@ other secrets.
    `AiEvidence` row:
    - `IGraphProjectionService.BuildLiveGraphAsync`: one database round trip that builds a `GraphSnapshot`.
    - `GraphTraversalService.DownstreamImpact`: in-memory propagation (max-product of edge strengths along the strongest path, pruned below `MinimumSignal`).
-   - `GraphTraversalService.DetectSingleSourcedNodes`: a local single-sourcing screen. It is a heuristic, not a minimum-cut analysis.
+   - `GraphTraversalService.DetectSingleSourcedNodes` and `SinglePointsOfFailure`: vertex minimum-cut analysis (`MinimumSupplyCut`, Edmonds-Karp max-flow on a vertex-split network). A cut of size one marks a single point of failure.
    - `RiskScoringService.Score`: a deterministic weighted formula.
 4. Only after the tools have produced their numbers does the orchestrator ask
    `IAiProvider.TryExplainAsync` for a narrative. The provider receives the evidence as delimited
@@ -207,19 +207,29 @@ permission once it has been applied. An administrator who removes a default perm
 after a restart. A database seeded before this marker existed receives its missing defaults once, on
 first start, and then the markers take over.
 
+## Domain events and the outbox
+
+- Aggregates (`AggregateRoot`) raise `IDomainEvent` records for the transitions that matter. `Decision` raises
+  `DecisionStateChanged` on approve, reject, start execution, and record outcome. `Alert` raises `AlertRaised` and
+  `AlertResolved`. A rejected transition raises nothing.
+- `AuroraDbContext.SaveChanges` copies the raised events into `OutboxMessages` before it saves, in the same
+  transaction as the change. An event exists if and only if its change is saved.
+- `DomainEventCatalog` (Web) is the closed list of event types that may be staged. Stored names must stay stable.
+- `OutboxDispatcher` is a hosted service. Every 5 seconds it takes up to 50 unprocessed messages, oldest first, and
+  passes each to every `IDomainEventHandler`. A message is marked processed only after all handlers succeed. A failure
+  stores the exception type, not the stack trace, and the message is retried until it reaches 5 attempts.
+- Delivery is at least once, so handlers must be idempotent. `DomainEventLogHandler` writes one structured log entry.
+  `OrganizationNotificationHandler` sends a `domainEvent` message to the SignalR group `org:{organizationId}` through
+  `/hubs/organization`. Each connection joins only its own organization's group.
+
 ## What is intentionally not implemented
 
 These parts of the specification are not built. The code contains no stubs or placeholder logic for them.
 
-- **Domain events.** No domain event infrastructure exists. An earlier `Events/` abstraction was
-  removed because nothing published or handled events. Side effects are direct calls in the same
-  unit of work. An outbox and event dispatch are future work, to be added when a second consumer
-  needs them.
 - **Module depth.** The Phase 3 modules have no repository layer; their controllers use `AuroraDbContext`
   directly (ADR 007). Customers and Reporting have no tables. Monitoring readings are entered by hand.
 - **Historical graph states.** There are no point-in-time graph snapshots. Counterfactuals use the
   current graph.
-- **Minimum-cut and max-flow analysis.** The single-sourcing screen is a local heuristic.
 - **Retrieval over documents, multi-agent debate, and background job queues.** Simulation and
   analysis run inline.
 - **Distributed caching.** Nothing needs Redis at the current scale.
