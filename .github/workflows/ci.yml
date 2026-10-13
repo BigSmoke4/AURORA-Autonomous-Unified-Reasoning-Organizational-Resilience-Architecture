@@ -132,8 +132,11 @@ jobs:
             fi
             sleep 2
           done
+          # Surface the diagnostics as annotations, so a failure is readable from the check run.
           echo "::error::The container did not become ready."
-          docker logs aurora-web
+          echo "::error::Container state: $(docker inspect --format '{{.State.Status}} exit={{.State.ExitCode}}' aurora-web 2>&1 || true)"
+          echo "::error::Readiness response: $(curl --silent --show-error --write-out ' [HTTP %{http_code}]' http://localhost:8080/health/ready 2>&1 || true)"
+          docker logs --tail 40 aurora-web 2>&1 | while IFS= read -r line; do echo "::error::log: $line"; done
           exit 1
 
       - name: Smoke checks
