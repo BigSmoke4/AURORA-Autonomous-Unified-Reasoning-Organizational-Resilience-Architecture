@@ -40,7 +40,9 @@ and OpenTelemetry, as a modular monolith on .NET 10.
 | AI investigation | `InvestigationOrchestrator`, `OpenAiCompatibleAiProvider` | Four deterministic tools run first and produce evidence. A model, if configured, only phrases the narrative. Without a model, a deterministic narrative is used. |
 | Repository layer | `Data/Repositories/IRepository.cs`, `EfRepository<T>` | Module controllers read and stage writes through `Entities<T>()`, a generic repository over the tenant-filtered context. The request's `SaveChangesAsync` commits each change with its audit row. See ADR 008. |
 | Graph snapshots for counterfactuals | `GraphSnapshotStore`, `GraphSnapshotCodec`, `GraphSnapshotRecord` | The live graph can be captured as versioned JSON, keeping every node and edge id, so scenarios still resolve. A counterfactual can run against a stored capture instead of the current graph. Captures are audited. The system does not rebuild past graphs from history: a capture shows the graph as it was when it was taken. See ADR 009. |
-| Metric feed ingestion | `Integration/Feeds`, `Services/MetricReadingRecorder` | Adapters only fetch raw payloads. One shared parser validates a fixed schema and rejects bad rows one at a time, with row numbers. Accepted rows go through the same recorder as manual entry, so alerts behave the same way. The bundled adapter reads a fixture file. Live feeds were not exercised. See ADR 009. |
+| Metric feed ingestion | `Integration/Feeds`, `Services/MetricReadingRecorder` | Adapters only fetch raw payloads. One shared parser validates a fixed schema and rejects bad rows one at a time, with row numbers. Accepted rows go through the same recorder as manual entry, so alerts behave the same way. Each feed uses one adapter: the HTTP adapter when `ExternalFeeds` configures its endpoint (https only, validated at startup), otherwise the bundled fixture. The live path is tested with stubs and has not been run against a provider. See ADRs 009 and 011. |
+| Vulnerability linkage | `Aurora.Modules.Technology` (`VulnerabilityAdvisory`, `PatchExposureCalculator`), `VulnerabilityFeedIngestor` | Patch policies can name a software product. Advisories from the vulnerability feed are matched by product, and an advisory published after the last patch is exposed, with a deadline of its publication date plus the policy's SLA. Severity follows CVSS bands (Critical 9.0 and above, High 7.0, Medium 4.0). Re-importing an unchanged feed creates no rows. See ADR 011. |
+| Shared narrative cache | `Infrastructure/Ai/CachingAiProvider`, Redis | Model narratives are cached under a hash of the model version, prompt, and evidence, so a model change invalidates the cache. Redis is used when `ConnectionStrings:Redis` is set, and a process-local cache otherwise. A cache failure never fails a request. See ADR 011. |
 | Background job queue | `Infrastructure/Jobs`, `Data/Jobs` | Tenant-scoped job rows with at-least-once delivery. A failed job retries after 30 seconds, up to 3 attempts. A job whose 5-minute lease expires is claimed again, so handlers must be idempotent. The dispatcher reads jobs across tenants explicitly, and a job's tenant comes only from the job row. See ADR 009. |
 | Knowledge retrieval | `Aurora.Modules.AI` (`DocumentChunker`, `DocumentRetriever`), `KnowledgeController` | Documents are split into chunks and ranked with Okapi BM25 (k1 1.5, b 0.75). Scores are deterministic and no model is involved. Each search returns at most 5 chunks. Every search loads all of the organization's chunks into memory, so the corpus is intended to stay modest in size. See ADR 010. |
 | Multi-agent decision debate | `DecisionDebateEngine`, `Services/DecisionDebateService`, `DecisionsController.Debate` | An advocate and a critic test the decision's recorded numbers against named thresholds, and a count-based judge gives the verdict. A tie goes to revision. The debate is rule-based and contains no language model. See ADR 010. |
@@ -53,18 +55,18 @@ and OpenTelemetry, as a modular monolith on .NET 10.
 | Security hardening | `SecurityHeadersMiddleware`, `RateLimitPolicies` | A strict Content Security Policy that forbids inline script and style. Rate limits on sign-in, AI investigation, and analysis endpoints. |
 | Observability | `AuroraTelemetry`, OpenTelemetry, Serilog | Tracing and metrics for ASP.NET Core and outgoing HTTP calls, with AURORA's own activity source and meter. Structured request logs through Serilog. Console exporters are used only in Development. Health endpoints are `/health/live`, `/health/ready`, and `/health`. |
 | Seed data | `Data/Seed/DbInitializer.cs`, `Data/Seed/OperationalModuleSeeder.cs` | The "Meridian Industrial Group" demo, with a deliberate single-source supplier dependency. Phase 3 demo records (roles, cost centers, production, patch policies, markets, assets, contracts, inventory, metrics, one open alert) are added for new organizations only. Idempotent. |
-| Tests | `tests/Aurora.Tests` | Unit tests for the graph, simulation, counterfactual, risk, forecasting, optimization, decision scoring, AI provider and orchestrator, and audit. An integration test runs the migrations against PostgreSQL and checks tenant isolation. The web host is started in Production mode and must serve its health, readiness, and login endpoints. Claim resolution is tested against ASP.NET Core Identity: active users get their organization, and deactivated or deleted users get none. Phase 3 calculators, entity rules, alert lifecycle, and CSV escaping have unit tests under `tests/Aurora.Tests/Modules`. HTTP tests in `tests/Aurora.Tests/Web` sign in through the login form and check that a deactivated user is refused, that every module page redirects anonymous users, that each page renders seeded data, that a recorded role stays within its own tenant, and that the CSV export works. HTTP tests also post every Phase 3 create form and check that exactly one row is saved for the tenant, so a form that fails to bind is caught. Phase 5 unit tests cover the chunker, BM25 retrieval, the debate engine, the snapshot codec, the feed parser against its fixture, and the job state machine, under `tests/Aurora.Tests/{Knowledge,Graph,Feeds,Jobs}`. |
+| Tests | `tests/Aurora.Tests` | Vulnerability parsing and exposure rules, HTTP feed adapters against stub handlers, option validation, the vulnerability ingestor against PostgreSQL, the caching decorator, and a Redis shared-read check that CI runs against a Redis service. Live feed and model checks are in `tests/Aurora.Tests/Live`, and each one runs only when its endpoint is set. CI also runs a k6 smoke load test (`tests/load`) and CodeQL. Unit tests for the graph, simulation, counterfactual, risk, forecasting, optimization, decision scoring, AI provider and orchestrator, and audit. An integration test runs the migrations against PostgreSQL and checks tenant isolation. The web host is started in Production mode and must serve its health, readiness, and login endpoints. Claim resolution is tested against ASP.NET Core Identity: active users get their organization, and deactivated or deleted users get none. Phase 3 calculators, entity rules, alert lifecycle, and CSV escaping have unit tests under `tests/Aurora.Tests/Modules`. HTTP tests in `tests/Aurora.Tests/Web` sign in through the login form and check that a deactivated user is refused, that every module page redirects anonymous users, that each page renders seeded data, that a recorded role stays within its own tenant, and that the CSV export works. HTTP tests also post every Phase 3 create form and check that exactly one row is saved for the tenant, so a form that fails to bind is caught. Phase 5 unit tests cover the chunker, BM25 retrieval, the debate engine, the snapshot codec, the feed parser against its fixture, and the job state machine, under `tests/Aurora.Tests/{Knowledge,Graph,Feeds,Jobs}`. |
 | Docker | `Dockerfile`, `docker-compose.yml` | PostgreSQL 16 plus the web app. The image runs as the non-root `app` user, and `.dockerignore` keeps `.env` and test output out of the build. Secrets come from the environment. CI builds the image, starts it against PostgreSQL, and checks readiness and security headers on every push. The compose stack serves plain HTTP for local use (`Security__RequireHttps=false`). Any shared deployment must put TLS in front and leave that setting at its default. |
 
 ---
 
 ## Not implemented
 
-These parts of the specification are **not** built. None is faked, and none has a placeholder class.
+These parts of the specification are **not** complete. None is faked, and none has a placeholder class.
 
-- **Live external feeds and model endpoints.** Feeds and models are reached through adapter boundaries that are tested with fixtures. The only feed source is the bundled fixture file. No live feed and no live model endpoint has been exercised by the tests or in any deployment.
-- **Vulnerability feeds.** Patch policies are not linked to a vulnerability feed.
-- **Redis or any distributed cache.** Nothing needs one at the current scale.
+- **Live external feeds and model endpoints are unverified.** The HTTP adapters for feeds and the OpenAI-compatible model client are built and tested with fixtures and stubs. The opt-in live tests in `tests/Aurora.Tests/Live` have not been run against a real provider, so their response formats are unconfirmed.
+- **Penetration testing and dynamic scanning.** [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md) is a code and CI review. No external penetration test or DAST scan has been run.
+- **Soak testing.** CI runs a two-minute smoke load test. A multi-hour soak needs a dedicated environment and has not been run.
 
 ---
 
@@ -177,7 +179,17 @@ The defaults in `appsettings.json` contain no secrets.
 - `Decisions:ScoringWeights`: the five decision scoring weights (spec section 84).
 - `AI:Provider`: `None` (default, deterministic narrative only) or `OpenAICompatible`. For
   `OpenAICompatible`, also set `AI:Endpoint`, `AI:Model`, and `AI:ApiKey`. The key must come from
-  user-secrets or the environment. `AI:TimeoutSeconds` bounds each attempt.
+  user-secrets or the environment. `AI:TimeoutSeconds` bounds each attempt. `AI:Endpoint` must be https, or http
+  on a loopback host. `AI:CacheMinutes` (default 60, zero disables) sets how long an identical narrative is reused.
+- `ExternalFeeds:Metrics` and `ExternalFeeds:Vulnerabilities`: `BaseUrl` (https only), `Path`, `ApiKey`, and
+  `TimeoutSeconds` (1 to 120). A feed with no `BaseUrl` uses its bundled fixture. The host refuses to start with an
+  invalid endpoint.
+- `ConnectionStrings:Redis`: optional. When set, narratives are cached in Redis, shared by every instance.
+- `Security:TrustedProxies`: addresses of reverse proxies whose `X-Forwarded-For` header is trusted. Without it,
+  the sign-in limit sees only the proxy's address.
+- Live test variables (opt-in, never set in CI): `AURORA_LIVE_METRIC_FEED_URL`, `AURORA_LIVE_METRIC_FEED_KEY`,
+  `AURORA_LIVE_VULNERABILITY_FEED_URL`, `AURORA_LIVE_VULNERABILITY_FEED_KEY`, `AURORA_LIVE_MODEL_ENDPOINT`,
+  `AURORA_LIVE_MODEL_NAME`, `AURORA_LIVE_MODEL_KEY`.
 
 To add another LLM provider, implement `IAiProvider` (see [ADR 004](docs/ADR/004-ai-provider-abstraction.md)).
 The provider never receives tools and never computes numbers.
@@ -195,20 +207,24 @@ The provider never receives tools and never computes numbers.
   `wwwroot/js` and `wwwroot/css`.
 - The AI layer receives only the evidence the orchestrator computed, wrapped as delimited data.
   The model is never given database access, and it cannot call tools.
+- Feed and model API keys are sent only over https (or to a loopback host for the model). The host refuses to start otherwise.
+- The review of these controls, with its findings and accepted residual risks, is in [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md).
 
 ---
 
 ## Documentation
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): layering, module shape, request flows, tenant isolation, and what is not built.
+- [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md): the security review, its findings, and accepted residual risks.
 - [`docs/ADR/`](docs/ADR): the architecture decisions, including why the LLM is never the calculation
   engine (ADR 004), why simulation is deterministic (ADR 005), and why decisions require a human (ADR 006).
 
 ## Roadmap
 
-1. Connect the feed and model adapters to live endpoints, and exercise them. Until then they are verified only with fixtures.
-2. Link patch policies to a vulnerability feed, through the same adapter boundary.
-3. Add a distributed cache only if the load requires one.
+1. Run the opt-in live feed and model tests against real endpoints, with credentials held outside the repository.
+2. Commission an external penetration test and a DAST scan of the running application.
+3. Run a multi-hour soak test in a dedicated environment, and record the results.
+4. Add an explicit WebSocket origin check to the hubs (see residual risk 8 in the security review).
 
 ## License
 

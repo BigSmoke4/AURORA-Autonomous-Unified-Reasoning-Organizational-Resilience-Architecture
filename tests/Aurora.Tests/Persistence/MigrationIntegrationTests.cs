@@ -6,6 +6,7 @@ using Aurora.Modules.Decisions.Domain;
 using Aurora.Modules.Graph.Domain;
 using Aurora.Modules.Organizations.Domain;
 using Aurora.Modules.Reporting.Domain;
+using Aurora.Modules.Technology.Domain;
 using Aurora.Shared.Kernel;
 using Aurora.Web.Data;
 using Aurora.Web.Data.Jobs;
@@ -127,6 +128,8 @@ public sealed class MigrationIntegrationTests
             setup.GraphSnapshotRecords.Add(new GraphSnapshotRecord(orgA.Id, new DateTime(2026, 10, 13, 0, 0, 0, DateTimeKind.Utc),
                 2, 1, "{}"));
             setup.BackgroundJobs.Add(new BackgroundJob(orgA.Id, "metric-feed", "{}", new DateTime(2026, 10, 13, 0, 0, 0, DateTimeKind.Utc)));
+            setup.VulnerabilityAdvisories.Add(new VulnerabilityAdvisory(orgA.Id, "CVE-2026-1001", "Example Gateway", 9.8m,
+                new DateTime(2026, 10, 10, 0, 0, 0, DateTimeKind.Utc), "Remote code execution.", new DateTime(2026, 10, 13, 0, 0, 0, DateTimeKind.Utc)));
             // A platform-level sign-in event has no organization and must stay invisible to every tenant.
             setup.AuditEntries.Add(new AuditEntry(null, null, "unknown@example.com", AuditActions.SignInFailed,
                 "User", null, AuditOutcome.Failure, null, null));
@@ -144,6 +147,7 @@ public sealed class MigrationIntegrationTests
             Assert.Equal(1, await tenantA.ExecutiveReportRuns.CountAsync());
             Assert.Equal(1, await tenantA.GraphSnapshotRecords.CountAsync());
             Assert.Equal(1, await tenantA.BackgroundJobs.CountAsync());
+            Assert.Equal(1, await tenantA.VulnerabilityAdvisories.CountAsync());
         }
 
         await using (var tenantB = new AuroraDbContext(options, new FixedTenant(Guid.NewGuid())))
@@ -154,6 +158,7 @@ public sealed class MigrationIntegrationTests
             Assert.Equal(0, await tenantB.ExecutiveReportRuns.CountAsync());
             Assert.Equal(0, await tenantB.GraphSnapshotRecords.CountAsync());
             Assert.Equal(0, await tenantB.BackgroundJobs.CountAsync());
+            Assert.Equal(0, await tenantB.VulnerabilityAdvisories.CountAsync());
         }
 
         await using (var anonymous = new AuroraDbContext(options, new FixedTenant(null)))
@@ -166,9 +171,11 @@ public sealed class MigrationIntegrationTests
             Assert.Equal(0, await anonymous.ExecutiveReportRuns.CountAsync());
             Assert.Equal(0, await anonymous.GraphSnapshotRecords.CountAsync());
             Assert.Equal(0, await anonymous.BackgroundJobs.CountAsync());
+            Assert.Equal(0, await anonymous.VulnerabilityAdvisories.CountAsync());
             Assert.Equal(1, await anonymous.ExecutiveReportRuns.IgnoreQueryFilters().CountAsync());
             Assert.Equal(1, await anonymous.GraphSnapshotRecords.IgnoreQueryFilters().CountAsync());
             Assert.Equal(1, await anonymous.BackgroundJobs.IgnoreQueryFilters().CountAsync());
+            Assert.Equal(1, await anonymous.VulnerabilityAdvisories.IgnoreQueryFilters().CountAsync());
         }
     }
 

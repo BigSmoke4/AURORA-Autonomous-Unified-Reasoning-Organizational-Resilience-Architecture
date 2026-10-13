@@ -100,6 +100,7 @@ public class AuroraDbContext : IdentityDbContext<ApplicationUser, ApplicationRol
     public DbSet<CostCenter> CostCenters => Set<CostCenter>();
     public DbSet<ProductionRecord> ProductionRecords => Set<ProductionRecord>();
     public DbSet<PatchPolicy> TechnologyPatchPolicies => Set<PatchPolicy>();
+    public DbSet<VulnerabilityAdvisory> VulnerabilityAdvisories => Set<VulnerabilityAdvisory>();
     public DbSet<MarketObservation> MarketObservations => Set<MarketObservation>();
     public DbSet<PhysicalAsset> PhysicalAssets => Set<PhysicalAsset>();
     public DbSet<SupplierContract> SupplierContracts => Set<SupplierContract>();

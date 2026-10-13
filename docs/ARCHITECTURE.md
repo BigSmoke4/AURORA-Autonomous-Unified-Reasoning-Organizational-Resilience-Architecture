@@ -249,14 +249,19 @@ These services were added with ADRs 008 to 010.
   stores the session and its arguments, and shows the latest debate on the decision page. The verdict is
   rule-based, as ADR 010 describes.
 
+- **Vulnerability linkage.** `VulnerabilityFeedIngestor` upserts advisories by organization and CVE. `PatchExposureCalculator`
+  matches a patch policy's product to advisories published after the last patch, and computes the deadline and severity.
+  The bundled fixture is used unless `ExternalFeeds:Vulnerabilities` is configured. See ADR 011.
+- **Shared narrative cache.** `CachingAiProvider` decorates the model provider. Redis holds the cache when
+  `ConnectionStrings:Redis` is set, and process memory holds it otherwise. A cache failure never fails a request.
+
 ## What is intentionally not implemented
 
-These parts of the specification are not built. The code contains no stubs or placeholder logic for them.
+These parts of the specification are not complete. The code contains no stubs or placeholder logic for them.
 
-- **Live external feeds and model endpoints.** The feed and model boundaries are adapter interfaces tested with
-  fixtures. The only feed source is the bundled fixture file, and no live feed or model endpoint has been
-  exercised.
-- **Vulnerability feeds.** Patch policies are not linked to a vulnerability feed.
-- **Distributed caching.** Nothing needs Redis at the current scale.
+- **Live external feeds and model endpoints are unverified.** The HTTP adapters are tested with stubs, and the opt-in
+  live tests have not run against a real provider.
+- **Penetration testing and dynamic scanning.** See `docs/SECURITY-REVIEW.md`.
+- **Multi-hour soak testing.** CI runs a two-minute smoke load test from `tests/load`.
 
 See `README.md` for the roadmap.
