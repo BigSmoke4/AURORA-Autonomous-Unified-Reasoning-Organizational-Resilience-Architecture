@@ -105,6 +105,7 @@ public sealed class AuroraClaimsTransformationTests
         var connectionString = TestDatabase.ReadDisposableDatabaseConnection();
 
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddSingleton<ITenantContext>(new TestTenant(null));
         services.AddDbContext<AuroraDbContext>(options => options.UseNpgsql(connectionString));
         services.AddIdentity<ApplicationUser, ApplicationRole>()
