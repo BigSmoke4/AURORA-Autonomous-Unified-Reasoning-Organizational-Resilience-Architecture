@@ -42,13 +42,6 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Verify EF Core model matches migrations
-        env:
-          ConnectionStrings__AuroraDb: ${{ env.AURORA_TEST_CONNECTION }}
-        run: |
-          dotnet tool install --global dotnet-ef --version 10.0.12
-          "$HOME/.dotnet/tools/dotnet-ef" migrations has-pending-model-changes --project src/Web/Aurora.Web/Aurora.Web.csproj --startup-project src/Web/Aurora.Web/Aurora.Web.csproj
-
       - name: Restore
         run: dotnet restore Aurora.sln
 
@@ -56,6 +49,13 @@ jobs:
         run: |
           echo "::add-matcher::.github/matchers/msbuild.json"
           dotnet build Aurora.sln --no-restore -c Release -warnaserror
+
+      - name: Verify EF Core model matches migrations
+        env:
+          ConnectionStrings__AuroraDb: ${{ env.AURORA_TEST_CONNECTION }}
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.12
+          "$HOME/.dotnet/tools/dotnet-ef" migrations has-pending-model-changes --project src/Web/Aurora.Web/Aurora.Web.csproj --startup-project src/Web/Aurora.Web/Aurora.Web.csproj
 
       - name: Unit and integration tests
         run: dotnet test Aurora.sln --no-build -c Release --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
