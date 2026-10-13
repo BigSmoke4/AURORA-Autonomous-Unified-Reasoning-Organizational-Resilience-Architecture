@@ -136,7 +136,9 @@ jobs:
           echo "::error::The container did not become ready."
           echo "::error::Container state: $(docker inspect --format '{{.State.Status}} exit={{.State.ExitCode}}' aurora-web 2>&1 || true)"
           echo "::error::Readiness response: $(curl --silent --show-error --write-out ' [HTTP %{http_code}]' http://localhost:8080/health/ready 2>&1 || true)"
-          docker logs --tail 40 aurora-web 2>&1 | while IFS= read -r line; do echo "::error::log: $line"; done
+          # One annotation holds the whole log tail. Newlines are escaped so the workflow command stays on one line.
+          encoded=$(docker logs --tail 400 aurora-web 2>&1 | head -c 12000 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')
+          echo "::error::Container log (tail): ${encoded}"
           exit 1
 
       - name: Smoke checks
