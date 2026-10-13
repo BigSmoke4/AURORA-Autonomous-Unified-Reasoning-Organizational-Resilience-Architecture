@@ -24,6 +24,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aurora.Modules.AI", "src\Mo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aurora.Web", "src\Web\Aurora.Web\Aurora.Web.csproj", "{F8F3275D-93EC-4F33-B488-F60659BB069E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aurora.Tests", "tests\Aurora.Tests\Aurora.Tests.csproj", "{46E13B04-CBD0-4963-A711-13668894E482}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -74,6 +76,10 @@ Global
 		{F8F3275D-93EC-4F33-B488-F60659BB069E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F8F3275D-93EC-4F33-B488-F60659BB069E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F8F3275D-93EC-4F33-B488-F60659BB069E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{46E13B04-CBD0-4963-A711-13668894E482}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{46E13B04-CBD0-4963-A711-13668894E482}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{46E13B04-CBD0-4963-A711-13668894E482}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{46E13B04-CBD0-4963-A711-13668894E482}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
