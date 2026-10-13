@@ -1,4 +1,5 @@
 using Aurora.Tests.Persistence;
+using Microsoft.AspNetCore.Hosting;
 using Aurora.Web.Integration.Feeds;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
