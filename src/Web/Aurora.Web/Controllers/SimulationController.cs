@@ -1,10 +1,15 @@
+using Aurora.Modules.Audit.Application;
+using Aurora.Modules.Audit.Domain;
 using Aurora.Modules.Graph.Application;
+using Aurora.Modules.Identity.Domain;
 using Aurora.Modules.Scenarios.Contracts;
 using Aurora.Modules.Simulation.Application;
 using Aurora.Modules.Simulation.Contracts;
 using Aurora.Modules.Simulation.Domain;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Simulation;
+using System.Diagnostics;
+using Aurora.Shared.Observability;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,7 +31,12 @@ public class SimulationController : Controller
     private readonly IScenarioRepository _scenarioRepository;
     private readonly ISimulationRepository _simulationRepository;
     private readonly SimulationEngine _engine;
+    /// <summary>Phases reported to the browser: snapshot loaded, propagation finished, results saved.</summary>
+    private const int ProgressPhaseCount = 3;
+
     private readonly ISimulationProgressNotifier _progressNotifier;
+    private readonly AuditRecorder _audit;
+    private readonly ILogger<SimulationController> _logger;
 
     public SimulationController(
         CurrentOrganizationAccessor orgAccessor,
@@ -34,8 +44,12 @@ public class SimulationController : Controller
         IScenarioRepository scenarioRepository,
         ISimulationRepository simulationRepository,
         SimulationEngine engine,
-        ISimulationProgressNotifier progressNotifier)
+        ISimulationProgressNotifier progressNotifier,
+        AuditRecorder audit,
+        ILogger<SimulationController> logger)
     {
+        _audit = audit;
+        _logger = logger;
         _orgAccessor = orgAccessor;
         _graphProjection = graphProjection;
         _scenarioRepository = scenarioRepository;
@@ -44,7 +58,7 @@ public class SimulationController : Controller
         _progressNotifier = progressNotifier;
     }
 
-    [Authorize(Policy = "Simulation.Read")]
+    [Authorize(Policy = AuroraPermissions.SimulationRead)]
     public async Task<IActionResult> Details(Guid scenarioId, CancellationToken ct)
     {
         var org = await _orgAccessor.GetCurrentAsync(ct);
@@ -66,7 +80,7 @@ public class SimulationController : Controller
     }
 
     [HttpPost]
-    [Authorize(Policy = "Simulation.Run")]
+    [Authorize(Policy = AuroraPermissions.SimulationRun)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Run(Guid scenarioId, CancellationToken ct)
     {
@@ -82,42 +96,55 @@ public class SimulationController : Controller
             return UnprocessableEntity("The scenario's target no longer exists in the digital twin. Edit the scenario and choose a current target.");
         }
 
-        var run = new SimulationRun(org.Id, scenario.Id, randomSeed: Random.Shared.Next());
+        // The engine is deterministic and draws no random numbers, so no seed is recorded.
+        var run = new SimulationRun(org.Id, scenario.Id, randomSeed: 0);
         await _simulationRepository.AddRunAsync(run, ct);
         await _simulationRepository.SaveChangesAsync(ct);
 
         run.Start();
         scenario.MarkRunning();
-        await _progressNotifier.ReportProgressAsync(run.Id, 0, scenario.DurationDays, "Loading graph snapshot...", ct);
+        await _progressNotifier.ReportProgressAsync(org.Id, scenario.Id, 1, ProgressPhaseCount, "Graph snapshot loaded.", ct);
 
+        var userId = _orgAccessor.GetCurrentUserId();
         try
         {
+            var engineTimer = Stopwatch.StartNew();
             var output = _engine.Run(run.Id, scenario, snapshot);
+            AuroraTelemetry.SimulationDurationMs.Record(engineTimer.Elapsed.TotalMilliseconds);
 
-            await _progressNotifier.ReportProgressAsync(run.Id, scenario.DurationDays / 2, scenario.DurationDays, "Propagating impact through the graph...", ct);
+            await _progressNotifier.ReportProgressAsync(org.Id, scenario.Id, 2, ProgressPhaseCount, "Impact propagated through the graph.", ct);
 
             await _simulationRepository.AddStepsAsync(output.Steps, ct);
             await _simulationRepository.AddResultAsync(output.Result, ct);
             run.Complete();
             scenario.MarkCompleted();
+            _audit.Record(org.Id, userId, User.ActorName(), AuditActions.SimulationRun, nameof(SimulationRun), run.Id.ToString(),
+                AuditOutcome.Success, $"Model {SimulationEngine.ModelVersion}.");
             await _simulationRepository.SaveChangesAsync(ct);
             await _scenarioRepository.SaveChangesAsync(ct);
 
-            await _progressNotifier.ReportProgressAsync(run.Id, scenario.DurationDays, scenario.DurationDays, "Simulation complete.", ct);
+            await _progressNotifier.ReportProgressAsync(org.Id, scenario.Id, ProgressPhaseCount, ProgressPhaseCount, "Simulation complete.", ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            run.Fail(ex.Message);
+            // Record the failure, then send the user back to the scenario. Exception text stays in the
+            // logs and never reaches the browser or the database.
+            _logger.LogError(ex, "Simulation run {SimulationRunId} failed for scenario {ScenarioId}.", run.Id, scenario.Id);
+            run.Fail("The simulation engine failed. See the server logs for details.");
             scenario.MarkFailed();
+            _audit.Record(org.Id, userId, User.ActorName(), AuditActions.SimulationFailed, nameof(SimulationRun), run.Id.ToString(),
+                AuditOutcome.Failure, "Simulation engine error.");
             await _simulationRepository.SaveChangesAsync(ct);
             await _scenarioRepository.SaveChangesAsync(ct);
-            throw;
+
+            TempData[FlashKeys.Error] = "The simulation failed and has been recorded. Check the server logs, then try again.";
+            return RedirectToAction(nameof(Details), new { scenarioId });
         }
 
         return RedirectToAction("Results", new { simulationRunId = run.Id });
     }
 
-    [Authorize(Policy = "Simulation.Read")]
+    [Authorize(Policy = AuroraPermissions.SimulationRead)]
     public async Task<IActionResult> Results(Guid simulationRunId, CancellationToken ct)
     {
         var org = await _orgAccessor.GetCurrentAsync(ct);

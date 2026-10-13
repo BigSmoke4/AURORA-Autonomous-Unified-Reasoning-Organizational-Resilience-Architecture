@@ -1,0 +1,133 @@
+using Aurora.Modules.Analysis.Domain;
+using Aurora.Modules.Audit.Application;
+using Aurora.Modules.Audit.Domain;
+using Aurora.Modules.Decisions.Application;
+using Aurora.Modules.Decisions.Domain;
+using Aurora.Modules.Organizations.Domain;
+using Aurora.Shared.Kernel;
+using Aurora.Web.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
+using Xunit;
+
+namespace Aurora.Tests.Persistence;
+
+/// <summary>
+/// Runs the real migration chain against PostgreSQL. CI provides the database through
+/// AURORA_TEST_CONNECTION. The database is dropped and recreated, so its name must contain "test".
+/// </summary>
+[Trait("Category", "Integration")]
+public sealed class MigrationIntegrationTests
+{
+    private const string ConnectionVariable = "AURORA_TEST_CONNECTION";
+    private const string Phase2MigrationId = "20261013120000_Phase2AuditAnalysisDecisionsAi";
+    private const string PreviousMigrationId = "20260901062452_InitialCreate";
+
+    [Fact]
+    public async Task Phase2Migration_AppliesAndRevertsCleanly()
+    {
+        var options = CreateOptions();
+
+        await using var db = new AuroraDbContext(options, new FixedTenant(null));
+        await db.Database.EnsureDeletedAsync();
+        await db.Database.MigrateAsync();
+
+        Assert.Empty(await db.Database.GetPendingMigrationsAsync());
+        Assert.Contains(Phase2MigrationId, await db.Database.GetAppliedMigrationsAsync());
+
+        var migrator = ((IInfrastructure<IServiceProvider>)db.Database).Instance.GetRequiredService<IMigrator>();
+        await migrator.MigrateAsync(PreviousMigrationId);
+        Assert.DoesNotContain(Phase2MigrationId, await db.Database.GetAppliedMigrationsAsync());
+
+        await db.Database.MigrateAsync();
+        Assert.Contains(Phase2MigrationId, await db.Database.GetAppliedMigrationsAsync());
+    }
+
+    [Fact]
+    public async Task TenantFilters_IsolateRowsAcrossOrganizations()
+    {
+        var options = CreateOptions();
+        var userId = Guid.NewGuid();
+        var weights = new DecisionScoringWeights();
+        var evidence = new CounterfactualEvidence(
+            Guid.NewGuid(), "target-edge-attenuation-v1", "Sole supplier", 1_000_000m, 250_000m, 40m);
+        var judgements = new ProposalJudgements(80m, 60m, 90, 50m);
+
+        Guid orgAId;
+        Guid decisionId;
+        await using (var setup = new AuroraDbContext(options, new FixedTenant(null)))
+        {
+            await setup.Database.EnsureDeletedAsync();
+            await setup.Database.MigrateAsync();
+
+            var orgA = new Organization("Integration Org A", "Manufacturing");
+            var orgB = new Organization("Integration Org B", "Logistics");
+            setup.Organizations.AddRange(orgA, orgB);
+            await setup.SaveChangesAsync();
+            orgAId = orgA.Id;
+
+            var decision = DecisionProposalFactory.FromCounterfactual(orgA.Id, userId, evidence, judgements, weights);
+            decisionId = decision.Id;
+            setup.Decisions.Add(decision);
+            setup.AnalysisRecords.Add(new AnalysisRecord(orgA.Id, AnalysisKind.Counterfactual, "Analysis A",
+                "target-edge-attenuation-v1", "{}", "{}", userId));
+            setup.AuditEntries.Add(new AuditEntry(orgA.Id, userId, "analyst", AuditActions.DecisionProposed,
+                "Decision", decision.Id.ToString(), AuditOutcome.Success, null, null));
+            await setup.SaveChangesAsync();
+        }
+
+        await using (var tenantA = new AuroraDbContext(options, new FixedTenant(orgAId)))
+        {
+            var decision = await tenantA.Decisions.SingleAsync();
+            Assert.Equal(decisionId, decision.Id);
+            Assert.Equal(250_000m, decision.PredictedRevenueImpact);
+            Assert.Equal(DecisionSourceKind.Counterfactual, decision.SourceKind);
+            Assert.Equal(1, await tenantA.AuditEntries.CountAsync());
+            Assert.Equal(1, await tenantA.AnalysisRecords.CountAsync());
+        }
+
+        await using (var tenantB = new AuroraDbContext(options, new FixedTenant(Guid.NewGuid())))
+        {
+            Assert.Equal(0, await tenantB.Decisions.CountAsync());
+            Assert.Equal(0, await tenantB.AuditEntries.CountAsync());
+            Assert.Equal(0, await tenantB.AnalysisRecords.CountAsync());
+        }
+
+        await using (var anonymous = new AuroraDbContext(options, new FixedTenant(null)))
+        {
+            Assert.Equal(0, await anonymous.Decisions.CountAsync());
+            // The unfiltered count proves that rows exist, so the zero counts above are meaningful.
+            Assert.Equal(1, await anonymous.Decisions.IgnoreQueryFilters().CountAsync());
+        }
+    }
+
+    private static DbContextOptions<AuroraDbContext> CreateOptions() =>
+        new DbContextOptionsBuilder<AuroraDbContext>().UseNpgsql(ReadDisposableDatabaseConnection()).Options;
+
+    private static string ReadDisposableDatabaseConnection()
+    {
+        var connectionString = Environment.GetEnvironmentVariable(ConnectionVariable);
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                $"Set {ConnectionVariable} to a disposable PostgreSQL database whose name contains 'test'.");
+        }
+
+        var database = new NpgsqlConnectionStringBuilder(connectionString).Database;
+        if (!database.Contains("test", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "The integration database name must contain 'test' because these tests drop and recreate it.");
+        }
+
+        return connectionString;
+    }
+
+    private sealed class FixedTenant(Guid? organizationId) : ITenantContext
+    {
+        public Guid? OrganizationId => organizationId;
+    }
+}

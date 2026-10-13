@@ -37,10 +37,4 @@ public class GraphNode : Entity, ITenantScoped
         RevenueExposure = revenueExposure;
         Status = status;
     }
-
-    public void UpdateStatus(string status)
-    {
-        Status = status;
-        Touch();
-    }
 }

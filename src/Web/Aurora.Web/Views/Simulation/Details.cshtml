@@ -15,7 +15,7 @@
         }
     </dl>
 
-    <form asp-controller="Simulation" asp-action="Run" asp-route-scenarioId="@Model.Scenario.Id" method="post" id="run-simulation-form">
+    <form asp-controller="Simulation" asp-action="Run" asp-route-scenarioId="@Model.Scenario.Id" method="post" id="run-simulation-form" data-scenario-id="@Model.Scenario.Id">
         @Html.AntiForgeryToken()
         <button type="submit" class="aurora-btn aurora-btn--primary aurora-btn--large">Run Simulation</button>
     </form>
@@ -45,6 +45,6 @@
 </section>
 
 @section Scripts {
-    <script src="~/js/aurora.signalr.js" asp-append-version="true"></script>
+    <script src="~/lib/signalr/signalr.min.js" asp-append-version="true"></script>
     <script src="~/js/aurora.simulation.js" asp-append-version="true"></script>
 }

@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -32,5 +33,9 @@
     <ProjectReference Include="..\..\Modules\Aurora.Modules.Risk\Aurora.Modules.Risk.csproj" />
     <ProjectReference Include="..\..\Modules\Aurora.Modules.Decisions\Aurora.Modules.Decisions.csproj" />
     <ProjectReference Include="..\..\Modules\Aurora.Modules.AI\Aurora.Modules.AI.csproj" />
+    <ProjectReference Include="..\..\Modules\Aurora.Modules.Audit\Aurora.Modules.Audit.csproj" />
+    <ProjectReference Include="..\..\Modules\Aurora.Modules.Analysis\Aurora.Modules.Analysis.csproj" />
+    <ProjectReference Include="..\..\Modules\Aurora.Modules.Forecasting\Aurora.Modules.Forecasting.csproj" />
+    <ProjectReference Include="..\..\Modules\Aurora.Modules.Optimization\Aurora.Modules.Optimization.csproj" />
   </ItemGroup>
 </Project>

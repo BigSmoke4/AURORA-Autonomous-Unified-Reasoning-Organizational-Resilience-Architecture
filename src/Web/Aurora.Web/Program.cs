@@ -1,6 +1,12 @@
+using Microsoft.Extensions.Options;
 using Aurora.Modules.AI.Application;
 using Aurora.Modules.AI.Contracts;
 using Aurora.Modules.AI.Infrastructure;
+using Aurora.Modules.Analysis.Contracts;
+using Aurora.Modules.Audit.Application;
+using Aurora.Modules.Audit.Contracts;
+using Aurora.Modules.Decisions.Contracts;
+using Aurora.Shared.Kernel;
 using Aurora.Modules.DigitalTwin.Contracts;
 using Aurora.Modules.Decisions.Domain;
 using Aurora.Modules.Graph.Application;
@@ -12,14 +18,15 @@ using Aurora.Modules.Scenarios.Application;
 using Aurora.Modules.Scenarios.Contracts;
 using Aurora.Modules.Simulation.Application;
 using Aurora.Modules.Simulation.Contracts;
-using Aurora.Shared.Events;
 using Aurora.Shared.Observability;
 using Aurora.Web.Data;
 using Aurora.Web.Data.Seed;
 using Aurora.Web.Hubs;
 using Aurora.Web.Infrastructure;
+using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -103,8 +110,18 @@ builder.Services.AddRateLimiter(RateLimitPolicies.Configure);
 // ---------- MVC + Razor + SignalR ----------
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
+
+// Decimal values (scores, percentages, forecast levels) are rendered and bound with invariant
+// culture, so form round-trips never depend on the host's locale.
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    options.DefaultRequestCulture = new RequestCulture(CultureInfo.InvariantCulture);
+    options.SupportedCultures = [CultureInfo.InvariantCulture];
+    options.SupportedUICultures = [CultureInfo.InvariantCulture];
+});
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Aurora.Web.Models.CurrentOrganizationAccessor>();
+builder.Services.AddScoped<ITenantContext, Aurora.Web.Models.RequestTenantContext>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authentication.IClaimsTransformation, Aurora.Web.Models.AuroraClaimsTransformation>();
 
 // ---------- Module contracts -> Web infrastructure implementations ----------
@@ -124,10 +141,36 @@ builder.Services.AddScoped<IOrganizationDirectory, OrganizationDirectory>();
 
 builder.Services.AddScoped<IAiInvestigationRepository, AiInvestigationRepository>();
 builder.Services.Configure<AiOptions>(builder.Configuration.GetSection(AiOptions.SectionName));
-builder.Services.AddSingleton<IAiProvider, NullAiProvider>(); // replaced by the LLM-backed provider when AI:Provider is configured
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<AiOptions>>().Value);
 builder.Services.AddScoped<InvestigationOrchestrator>();
 
-builder.Services.AddSingleton<IDomainEventDispatcher, DomainEventDispatcher>();
+// The LLM is optional. When AI:Provider is configured, narratives come from an OpenAI-compatible
+// endpoint with timeouts and retries; otherwise the deterministic narrative is used (spec section 71).
+var aiTimeout = TimeSpan.FromSeconds(builder.Configuration.GetSection(AiOptions.SectionName).Get<AiOptions>()?.TimeoutSeconds ?? new AiOptions().TimeoutSeconds);
+builder.Services.AddHttpClient<OpenAiCompatibleAiProvider>((sp, client) =>
+    {
+        var options = sp.GetRequiredService<AiOptions>();
+        if (options.IsLlmProviderConfigured)
+        {
+            client.BaseAddress = new Uri(options.Endpoint!.TrimEnd('/') + "/");
+        }
+    })
+    .AddStandardResilienceHandler(options =>
+    {
+        options.AttemptTimeout.Timeout = aiTimeout;
+        options.TotalRequestTimeout.Timeout = aiTimeout * 2;
+    });
+builder.Services.AddScoped<IAiProvider>(sp => sp.GetRequiredService<AiOptions>().IsLlmProviderConfigured
+    ? sp.GetRequiredService<OpenAiCompatibleAiProvider>()
+    : new NullAiProvider());
+
+// ---------- Phase 2 modules: audit, analysis records, decisions, deterministic analysis engines ----------
+builder.Services.AddScoped<IAuditRepository, AuditRepository>();
+builder.Services.AddScoped<AuditRecorder>();
+builder.Services.AddScoped<IAnalysisRecordRepository, AnalysisRecordRepository>();
+builder.Services.AddScoped<IDecisionRepository, DecisionRepository>();
+builder.Services.AddSingleton<CounterfactualAnalyzer>();
+
 
 // ---------- Health checks (spec section 69) ----------
 builder.Services.AddHealthChecks()
@@ -167,6 +210,7 @@ app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseStaticFiles();
+app.UseRequestLocalization();
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();

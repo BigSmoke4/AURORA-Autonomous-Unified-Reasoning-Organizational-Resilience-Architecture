@@ -24,7 +24,7 @@ fully unit-tested and auditable end-to-end (see `Aurora.Tests/SimulationEngineTe
 - Every number the Simulation Lab displays can be traced back to: the scenario's own inputs, the
   target node's graph position, and each node's `RevenueExposure`/`Criticality` fields — nothing
   is estimated by an LLM (see ADR 004).
-- The model is a placeholder for more sophisticated variants (inventory/capacity/financial
-  sub-models per spec section 13) — those can be added as alternative `SimulationEngine`
+- The model is deliberately limited. It has no inventory, capacity, or financial sub-models yet
+  (spec section 13) — those can be added as alternative `SimulationEngine`
   implementations selected by `ModelVersion` without breaking the stored `SimulationRun` schema,
   which already carries a `ModelVersion` string for exactly this purpose.

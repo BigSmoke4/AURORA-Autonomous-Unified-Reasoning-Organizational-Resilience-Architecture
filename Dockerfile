@@ -14,6 +14,10 @@ COPY src/Modules/Aurora.Modules.Simulation/Aurora.Modules.Simulation.csproj src/
 COPY src/Modules/Aurora.Modules.Risk/Aurora.Modules.Risk.csproj src/Modules/Aurora.Modules.Risk/
 COPY src/Modules/Aurora.Modules.Decisions/Aurora.Modules.Decisions.csproj src/Modules/Aurora.Modules.Decisions/
 COPY src/Modules/Aurora.Modules.AI/Aurora.Modules.AI.csproj src/Modules/Aurora.Modules.AI/
+COPY src/Modules/Aurora.Modules.Audit/Aurora.Modules.Audit.csproj src/Modules/Aurora.Modules.Audit/
+COPY src/Modules/Aurora.Modules.Analysis/Aurora.Modules.Analysis.csproj src/Modules/Aurora.Modules.Analysis/
+COPY src/Modules/Aurora.Modules.Forecasting/Aurora.Modules.Forecasting.csproj src/Modules/Aurora.Modules.Forecasting/
+COPY src/Modules/Aurora.Modules.Optimization/Aurora.Modules.Optimization.csproj src/Modules/Aurora.Modules.Optimization/
 COPY src/Web/Aurora.Web/Aurora.Web.csproj src/Web/Aurora.Web/
 COPY tests/Aurora.Tests/Aurora.Tests.csproj tests/Aurora.Tests/
 

@@ -1,0 +1,57 @@
+@model Aurora.Web.Models.Strategy.StrategyIndexViewModel
+@{ ViewData["Title"] = "Strategy Lab"; }
+
+<section class="aurora-workflow-grid">
+    <div class="aurora-panel">
+        <h1>Counterfactual</h1>
+        <p class="aurora-note">Re-runs a scenario with part of the target's downstream dependence moved to alternate sources. The same deterministic engine produces the actual and counterfactual results. Nothing here is estimated by a model.</p>
+
+        @if (Model.Scenarios.Any())
+        {
+            <form asp-controller="Strategy" asp-action="Counterfactual" method="post" class="aurora-form">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="aurora-form__errors"></div>
+                <label class="aurora-form__label">
+                    Scenario
+                    <select asp-for="Counterfactual.ScenarioId" class="aurora-form__input">
+                        @foreach (var scenario in Model.Scenarios)
+                        {
+                            <option value="@scenario.Id">@scenario.Name</option>
+                        }
+                    </select>
+                </label>
+                <label class="aurora-form__label">
+                    Dependence moved to alternate sources (%)
+                    <input asp-for="Counterfactual.MitigationSharePct" type="number" min="0" max="100" class="aurora-form__input" />
+                </label>
+                <button type="submit" class="aurora-btn aurora-btn--primary">Run counterfactual</button>
+            </form>
+        }
+        else
+        {
+            <p class="aurora-table__empty">Create a scenario in the Scenario Lab first.</p>
+        }
+    </div>
+
+    <div class="aurora-panel">
+        <h1>Supply Allocation</h1>
+        <p class="aurora-note">Allocates one demand across candidate sources, each with a capacity, a unit cost, a unit risk (0-1) and a maximum share of demand. The result is the recommended plan and the cost-risk frontier.</p>
+        <form asp-controller="Strategy" asp-action="Optimize" method="post" class="aurora-form">
+            @Html.AntiForgeryToken()
+            <label class="aurora-form__label">
+                Demand (units)
+                <input asp-for="Optimization.Demand" type="number" step="any" class="aurora-form__input" />
+            </label>
+            <label class="aurora-form__label">
+                Weight on cost (%); the rest is weight on risk
+                <input asp-for="Optimization.CostWeightPct" type="number" min="0" max="100" class="aurora-form__input" />
+            </label>
+            <label class="aurora-form__label">
+                Candidates: one per line as Name | capacity | unit cost | unit risk | max share
+                <textarea asp-for="Optimization.CandidatesText" class="aurora-form__input aurora-form__input--textarea" rows="6"></textarea>
+            </label>
+            <span asp-validation-for="Optimization.CandidatesText" class="aurora-form__errors"></span>
+            <button type="submit" class="aurora-btn aurora-btn--primary">Optimize allocation</button>
+        </form>
+    </div>
+</section>

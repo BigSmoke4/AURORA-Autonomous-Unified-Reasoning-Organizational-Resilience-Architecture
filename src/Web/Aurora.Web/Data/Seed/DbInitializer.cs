@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Aurora.Web.Data.Seed;
 
 /// <summary>
-/// Builds a realistic, intentionally-vulnerable demo enterprise (spec section 81/82) so the
+/// Builds a realistic demo enterprise with a deliberate single-source dependency (spec section 81/82) so the
 /// Command Center, Graph, Risk, and Simulation features have real data to operate on the first
 /// time AURORA starts. Idempotent: does nothing if any organization already exists.
 /// </summary>
@@ -76,7 +76,7 @@ public static class DbInitializer
         db.Employees.AddRange(employees);
         await db.SaveChangesAsync();
 
-        // --- Suppliers (intentionally concentrated: Northbridge is a single point of failure) ---
+        // --- Suppliers (intentionally concentrated: Northbridge is the only supplier of its type for Factory Alpha) ---
         var suppliers = new List<Supplier>
         {
             new(org.Id, "Northbridge Components", "Precision Components", capacityUtilizationPct: 92, criticality: 5, annualRevenueExposure: 42_000_000m, location: "Shenzhen, CN"),
@@ -222,7 +222,7 @@ public static class DbInitializer
 
         logger.LogInformation(
             "AURORA seed complete: organization {Org}, {NodeCount} graph nodes, {EdgeCount} graph edges.",
-            org.Name, nodeByEntity.Count, await db.GraphEdges.CountAsync());
+            org.Name, nodeByEntity.Count, await db.GraphEdges.IgnoreQueryFilters().CountAsync(e => e.OrganizationId == org.Id));
     }
 
     private static async Task SeedRolesAsync(RoleManager<ApplicationRole> roleManager)

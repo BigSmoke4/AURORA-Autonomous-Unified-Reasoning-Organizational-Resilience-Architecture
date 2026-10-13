@@ -22,13 +22,14 @@ public static class AuroraPermissions
     public const string AuditRead = "Audit.Read";
     public const string ForecastRun = "Forecast.Run";
     public const string OptimizationApprove = "Optimization.Approve";
+    public const string DecisionPropose = "Decision.Propose";
 
     /// <summary>Every permission AURORA authorizes, used to register one policy per permission.</summary>
     public static readonly IReadOnlyList<string> All = new[]
     {
         GraphRead, GraphWrite, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, SimulationRun,
-        OptimizationRun, OptimizationApprove, ForecastRun, AiInvestigate, AiApprove, DecisionRead, DecisionApprove,
-        DecisionExecute, ReportsRead, AuditRead
+        OptimizationRun, OptimizationApprove, ForecastRun, AiInvestigate, AiApprove, DecisionRead, DecisionPropose,
+        DecisionApprove, DecisionExecute, ReportsRead, AuditRead
     };
 
     /// <summary>Default permission grants per role. Seeded on startup; editable later via an
@@ -37,11 +38,11 @@ public static class AuroraPermissions
     {
         [AuroraRoles.SystemAdministrator] = All.ToArray(),
         [AuroraRoles.Executive] = new[] { GraphRead, ScenarioRead, SimulationRead, DecisionRead, DecisionApprove, OptimizationApprove, ReportsRead },
-        [AuroraRoles.StrategyAnalyst] = new[] { GraphRead, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, SimulationRun, OptimizationRun, ForecastRun, ReportsRead },
+        [AuroraRoles.StrategyAnalyst] = new[] { GraphRead, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, SimulationRun, OptimizationRun, ForecastRun, DecisionRead, DecisionPropose, ReportsRead },
         [AuroraRoles.OperationsManager] = new[] { GraphRead, ScenarioRead, SimulationRead, ReportsRead },
-        [AuroraRoles.SupplyChainManager] = new[] { GraphRead, ScenarioRead, ScenarioCreate, SimulationRead, ReportsRead },
-        [AuroraRoles.FinanceManager] = new[] { GraphRead, ScenarioRead, SimulationRead, ForecastRun, ReportsRead },
-        [AuroraRoles.RiskManager] = new[] { GraphRead, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, ReportsRead },
+        [AuroraRoles.SupplyChainManager] = new[] { GraphRead, ScenarioRead, ScenarioCreate, SimulationRead, OptimizationRun, DecisionRead, DecisionPropose, ReportsRead },
+        [AuroraRoles.FinanceManager] = new[] { GraphRead, ScenarioRead, SimulationRead, ForecastRun, DecisionRead, ReportsRead },
+        [AuroraRoles.RiskManager] = new[] { GraphRead, ScenarioRead, ScenarioCreate, ScenarioRun, SimulationRead, DecisionRead, DecisionPropose, ReportsRead },
         [AuroraRoles.TechnologyManager] = new[] { GraphRead, ScenarioRead, SimulationRead, ReportsRead },
         [AuroraRoles.AiSupervisor] = new[] { GraphRead, ScenarioRead, SimulationRead, AiInvestigate, ReportsRead },
         [AuroraRoles.DecisionApprover] = new[] { GraphRead, ScenarioRead, SimulationRead, DecisionRead, DecisionApprove, DecisionExecute, ReportsRead },

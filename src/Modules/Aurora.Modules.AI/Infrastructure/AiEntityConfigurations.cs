@@ -10,11 +10,12 @@ public class AiInvestigationConfig : IEntityTypeConfiguration<AiInvestigation>
     {
         b.ToTable("AiInvestigations");
         b.HasKey(x => x.Id);
-        b.Property(x => x.Question).IsRequired().HasMaxLength(1000);
+        b.Property(x => x.Question).IsRequired().HasMaxLength(AiInvestigation.MaxQuestionLength);
         b.Property(x => x.NarrativeExplanation).HasMaxLength(4000);
         b.Property(x => x.Confidence).HasColumnType("decimal(5,2)");
+        b.Property(x => x.NarrativeSource).HasConversion<string>().HasMaxLength(20);
+        b.Property(x => x.ModelVersion).IsRequired().HasMaxLength(AiInvestigation.MaxModelVersionLength);
         b.HasIndex(x => x.OrganizationId);
-        b.Ignore(x => x.DomainEvents);
         b.HasMany(x => x.Evidence).WithOne().HasForeignKey(x => x.AiInvestigationId).OnDelete(DeleteBehavior.Cascade);
         b.Metadata.FindNavigation(nameof(AiInvestigation.Evidence))!
             .SetPropertyAccessMode(Microsoft.EntityFrameworkCore.PropertyAccessMode.Field);

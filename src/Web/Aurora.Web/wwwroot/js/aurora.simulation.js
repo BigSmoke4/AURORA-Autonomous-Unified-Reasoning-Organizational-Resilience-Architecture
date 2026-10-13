@@ -8,27 +8,31 @@
   function wireProgressBar() {
     const form = document.getElementById('run-simulation-form');
     const progress = document.getElementById('simulation-progress');
-    if (!form || !progress) return;
+    if (!form || !progress || typeof window.signalR === 'undefined') return;
 
-    let connection = null;
-    const runIdMatch = window.location.pathname.match(/scenarioId/);
+    const scenarioId = form.dataset.scenarioId;
+    const message = progress.querySelector('.aurora-progress__message');
+    const bar = progress.querySelector('.aurora-progress__bar');
 
-    window.addEventListener('aurora:signalr-ready', async () => {
-      connection = new signalR.HubConnectionBuilder().withUrl('/hubs/simulation').build();
-      connection.on('progress', (payload) => {
-        const bar = progress.querySelector('.aurora-progress__bar');
-        const message = progress.querySelector('.aurora-progress__message');
-        const pct = payload.totalDays > 0 ? Math.round((payload.currentDay / payload.totalDays) * 100) : 100;
-        bar.style.setProperty('--pct', pct + '%');
-        bar.querySelector('::after');
-        bar.style.setProperty('width', '100%');
-        bar.style.background = `linear-gradient(90deg, var(--aurora-accent-strong) ${pct}%, var(--aurora-bg-recessed) ${pct}%)`;
-        message.textContent = payload.message;
-      });
-      try { await connection.start(); } catch (e) { console.warn('SignalR connection failed', e); }
+    // The connection is opened and joined before the form is submitted, so the server's phase
+    // messages reach this page while the POST is in flight.
+    const connection = new window.signalR.HubConnectionBuilder().withUrl('/hubs/simulation').withAutomaticReconnect().build();
+    connection.on('progress', (payload) => {
+      if (payload.scenarioId !== scenarioId) return;
+      const pct = payload.totalPhases > 0 ? Math.round((payload.completedPhases / payload.totalPhases) * 100) : 0;
+      bar.style.setProperty('--aurora-progress', pct + '%');
+      message.textContent = payload.message;
     });
 
+    connection.start()
+      .then(() => connection.invoke('JoinScenario', scenarioId))
+      .catch(() => {
+        message.textContent = 'Live progress is unavailable. The results page opens when the run finishes.';
+      });
+
     form.addEventListener('submit', () => {
+      bar.style.setProperty('--aurora-progress', '0%');
+      message.textContent = 'Starting...';
       progress.hidden = false;
     });
   }

@@ -4,7 +4,7 @@ namespace Aurora.Web.Models.Account;
 
 public class LoginViewModel
 {
-    [Required, EmailAddress]
+    [Required, EmailAddress, StringLength(256)]
     public string Email { get; set; } = string.Empty;
 
     [Required, DataType(DataType.Password)]

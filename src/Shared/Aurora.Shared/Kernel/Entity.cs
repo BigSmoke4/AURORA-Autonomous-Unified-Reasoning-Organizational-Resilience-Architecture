@@ -10,8 +10,11 @@ public abstract class Entity
     public DateTime CreatedAtUtc { get; protected set; } = DateTime.UtcNow;
     public DateTime? UpdatedAtUtc { get; protected set; }
 
-    /// <summary>Optimistic concurrency token (maps to a PostgreSQL xmin-style rowversion column).</summary>
-    public uint Version { get; protected set; }
+    /// <summary>
+    /// Optimistic concurrency token, stored as bigint. AuroraDbContext advances it on every update, and
+    /// the WHERE clause of an UPDATE checks the version that was read.
+    /// </summary>
+    public long Version { get; protected set; }
 
     public void Touch() => UpdatedAtUtc = DateTime.UtcNow;
 

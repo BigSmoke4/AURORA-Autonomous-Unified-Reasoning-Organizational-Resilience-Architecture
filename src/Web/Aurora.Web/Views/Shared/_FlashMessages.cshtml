@@ -1,0 +1,8 @@
+@if (TempData[FlashKeys.Success] is string successMessage)
+{
+    <div class="aurora-alert aurora-alert--success" role="status">@successMessage</div>
+}
+@if (TempData[FlashKeys.Error] is string errorMessage)
+{
+    <div class="aurora-alert aurora-alert--critical" role="alert">@errorMessage</div>
+}

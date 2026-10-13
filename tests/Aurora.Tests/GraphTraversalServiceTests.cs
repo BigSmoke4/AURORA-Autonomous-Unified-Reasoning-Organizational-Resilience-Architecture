@@ -94,9 +94,9 @@ public class GraphTraversalServiceTests
     }
 
     [Fact]
-    public void DetectSinglePointsOfFailure_FlagsConcentratedDependency()
+    public void DetectSingleSourcedNodes_FlagsConcentratedDependency()
     {
-        // Two suppliers of the same type feeding one factory => not a SPOF for that edge.
+        // Two suppliers of the same type feeding one factory => not single-sourced for that edge.
         var s1 = new GraphNode(_org, GraphNodeType.Supplier, Guid.NewGuid(), "S1", 3, 100m);
         var s2 = new GraphNode(_org, GraphNodeType.Supplier, Guid.NewGuid(), "S2", 3, 100m);
         var soleSupplier = new GraphNode(_org, GraphNodeType.Supplier, Guid.NewGuid(), "SoleSupplier", 5, 500m);
@@ -113,8 +113,98 @@ public class GraphTraversalServiceTests
         var snapshot = new GraphSnapshot(_org, new[] { s1, s2, soleSupplier, factoryWithRedundancy, factoryWithoutRedundancy }, edges);
         var service = new GraphTraversalService();
 
-        var spofs = service.DetectSinglePointsOfFailure(snapshot);
+        var singleSourced = service.DetectSingleSourcedNodes(snapshot);
 
-        Assert.Contains(soleSupplier.Id, spofs);
+        Assert.Contains(soleSupplier.Id, singleSourced);
+    }
+
+    [Fact]
+    public void DownstreamImpact_ReportsStrongestPath_NotFirstPathFound()
+    {
+        // X -> Y directly with a weak edge (0.1), and X -> Z -> Y with two strong edges (0.9 * 0.9).
+        // Max-product propagation must report the strongest route to Y, not the direct one.
+        var x = new GraphNode(_org, GraphNodeType.Supplier, Guid.NewGuid(), "X", 3, 100m);
+        var y = new GraphNode(_org, GraphNodeType.Factory, Guid.NewGuid(), "Y", 3, 100m);
+        var z = new GraphNode(_org, GraphNodeType.Supplier, Guid.NewGuid(), "Z", 3, 100m);
+
+        var edges = new List<GraphEdge>
+        {
+            new(_org, x.Id, y.Id, GraphRelationshipType.Supplies, 0.1m, 3),
+            new(_org, x.Id, z.Id, GraphRelationshipType.Supplies, 0.9m, 3),
+            new(_org, z.Id, y.Id, GraphRelationshipType.Supplies, 0.9m, 3),
+        };
+
+        var snapshot = new GraphSnapshot(_org, new[] { x, y, z }, edges);
+        var service = new GraphTraversalService();
+
+        var impactY = service.DownstreamImpact(snapshot, x.Id).Single(i => i.NodeId == y.Id);
+
+        Assert.Equal(0.81m, impactY.PropagatedStrength);
+        Assert.Equal(2, impactY.HopDistance);
+    }
+
+    [Fact]
+    public void DownstreamImpact_DoesNotExpandBeyondMaxDepth()
+    {
+        // P -> Q -> R -> S. With maxDepth 2, R (two hops away) is reported but S (three hops) is not.
+        var p = new GraphNode(_org, GraphNodeType.Supplier, Guid.NewGuid(), "P", 3, 100m);
+        var q = new GraphNode(_org, GraphNodeType.Factory, Guid.NewGuid(), "Q", 3, 100m);
+        var r = new GraphNode(_org, GraphNodeType.Product, Guid.NewGuid(), "R", 3, 100m);
+        var s = new GraphNode(_org, GraphNodeType.Customer, Guid.NewGuid(), "S", 3, 100m);
+
+        var edges = new List<GraphEdge>
+        {
+            new(_org, p.Id, q.Id, GraphRelationshipType.Supplies, 0.9m, 3),
+            new(_org, q.Id, r.Id, GraphRelationshipType.Produces, 0.9m, 3),
+            new(_org, r.Id, s.Id, GraphRelationshipType.Supplies, 0.9m, 3),
+        };
+
+        var snapshot = new GraphSnapshot(_org, new[] { p, q, r, s }, edges);
+        var service = new GraphTraversalService();
+
+        var impactedIds = service.DownstreamImpact(snapshot, p.Id, maxDepth: 2).Select(i => i.NodeId).ToHashSet();
+
+        Assert.Contains(r.Id, impactedIds);
+        Assert.DoesNotContain(s.Id, impactedIds);
+    }
+
+    [Fact]
+    public void DownstreamImpact_DropsSignalsBelowMinimumSignal()
+    {
+        // 0.01 is below GraphTraversalService.MinimumSignal (0.02), so the impact is negligible.
+        var p = new GraphNode(_org, GraphNodeType.Supplier, Guid.NewGuid(), "P", 3, 100m);
+        var q = new GraphNode(_org, GraphNodeType.Factory, Guid.NewGuid(), "Q", 3, 100m);
+
+        var edges = new List<GraphEdge>
+        {
+            new(_org, p.Id, q.Id, GraphRelationshipType.Supplies, 0.01m, 3),
+        };
+
+        var snapshot = new GraphSnapshot(_org, new[] { p, q }, edges);
+        var service = new GraphTraversalService();
+
+        Assert.Empty(service.DownstreamImpact(snapshot, p.Id));
+    }
+
+    [Fact]
+    public void DownstreamImpact_ExcludesStartNode_WhenGraphHasCycle()
+    {
+        // A -> B -> A. A failing impacts B, but A must never be reported as impacted by itself.
+        var a = new GraphNode(_org, GraphNodeType.Supplier, Guid.NewGuid(), "A", 3, 100m);
+        var b = new GraphNode(_org, GraphNodeType.Factory, Guid.NewGuid(), "B", 3, 100m);
+
+        var edges = new List<GraphEdge>
+        {
+            new(_org, a.Id, b.Id, GraphRelationshipType.Supplies, 0.8m, 3),
+            new(_org, b.Id, a.Id, GraphRelationshipType.Supplies, 0.8m, 3),
+        };
+
+        var snapshot = new GraphSnapshot(_org, new[] { a, b }, edges);
+        var service = new GraphTraversalService();
+
+        var impactedIds = service.DownstreamImpact(snapshot, a.Id).Select(i => i.NodeId).ToList();
+
+        Assert.Contains(b.Id, impactedIds);
+        Assert.DoesNotContain(a.Id, impactedIds);
     }
 }

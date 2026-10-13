@@ -1,3 +1,4 @@
+@using Aurora.Modules.Identity.Domain
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,6 +18,13 @@
                 <a asp-controller="CommandCenter" asp-action="Index">Command Center</a>
                 <a asp-controller="DigitalTwin" asp-action="Index">Digital Twin</a>
                 <a asp-controller="Scenarios" asp-action="Index">Scenario Lab</a>
+                <a asp-controller="Strategy" asp-action="Index">Strategy Lab</a>
+                <a asp-controller="Forecasting" asp-action="Index">Forecasting</a>
+                <a asp-controller="Decisions" asp-action="Index">Decisions</a>
+                @if (User.HasClaim(AuroraClaims.Permission, AuroraPermissions.AuditRead))
+                {
+                    <a asp-controller="Audit" asp-action="Index">Audit</a>
+                }
             </nav>
             <div class="aurora-topbar__user">
                 @if (User.Identity?.IsAuthenticated == true)
@@ -35,6 +43,7 @@
         </header>
 
         <main class="aurora-main">
+            <partial name="_FlashMessages" />
             @RenderBody()
         </main>
 

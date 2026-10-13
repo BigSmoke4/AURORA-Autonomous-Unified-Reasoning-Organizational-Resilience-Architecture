@@ -25,17 +25,4 @@ public class Organization : AggregateRoot
         Industry = industry;
         HeadquartersLocation = headquartersLocation;
     }
-
-    public void Rename(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Organization name is required.", nameof(name));
-        Name = name;
-        Touch();
-    }
-
-    public void Deactivate()
-    {
-        IsActive = false;
-        Touch();
-    }
 }

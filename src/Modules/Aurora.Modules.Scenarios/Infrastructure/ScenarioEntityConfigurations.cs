@@ -14,6 +14,5 @@ public class ScenarioConfig : IEntityTypeConfiguration<Scenario>
         b.Property(x => x.Severity).HasColumnType("decimal(4,3)");
         b.Property(x => x.Assumptions).HasMaxLength(2000);
         b.HasIndex(x => x.OrganizationId);
-        b.Ignore(x => x.DomainEvents);
     }
 }

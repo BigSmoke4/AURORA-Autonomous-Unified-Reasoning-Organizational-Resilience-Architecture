@@ -1,0 +1,101 @@
+@model Aurora.Web.Models.Analysis.AnalysisDetailsViewModel
+@{ ViewData["Title"] = Model.Record.Title; }
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header">
+        <h1>@Model.Record.Title</h1>
+        <span class="aurora-status-pill aurora-status-pill--completed">@Model.Record.Kind</span>
+    </div>
+
+    <dl class="aurora-definition-list">
+        <dt>Model version</dt><dd>@Model.Record.ModelVersion</dd>
+        <dt>Created (UTC)</dt><dd>@Model.Record.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</dd>
+    </dl>
+    <p class="aurora-note">Every figure below was computed by the deterministic engine named above. The stored inputs and outputs are kept so the result can be reproduced.</p>
+
+    @if (Model.Counterfactual is { } cf)
+    {
+        <p>@cf.TargetName &middot; mitigation share @cf.MitigationShare.ToString("P0") &middot; method @cf.Method</p>
+        <table class="aurora-table">
+            <thead><tr><th>Measure</th><th>Actual</th><th>Counterfactual</th></tr></thead>
+            <tbody>
+                <tr><td>Total revenue impact</td><td>@cf.Actual.TotalRevenueImpact.ToString("C0")</td><td>@cf.Counterfactual.TotalRevenueImpact.ToString("C0")</td></tr>
+                <tr><td>Peak daily impact score</td><td>@cf.Actual.PeakDailyImpactScore.ToString("0.000")</td><td>@cf.Counterfactual.PeakDailyImpactScore.ToString("0.000")</td></tr>
+                <tr><td>Affected nodes</td><td>@cf.Actual.AffectedNodeCount</td><td>@cf.Counterfactual.AffectedNodeCount</td></tr>
+                <tr><td>Recovery time (days)</td><td>@cf.Actual.RecoveryTimeDays</td><td>@cf.Counterfactual.RecoveryTimeDays</td></tr>
+            </tbody>
+        </table>
+        <div class="aurora-impact-summary">
+            <div class="aurora-impact-summary__item"><span class="aurora-impact-summary__label">Revenue impact avoided</span><span class="aurora-impact-summary__value">@cf.RevenueImpactAvoided.ToString("C0")</span></div>
+            <div class="aurora-impact-summary__item"><span class="aurora-impact-summary__label">Peak impact reduction</span><span class="aurora-impact-summary__value">@cf.PeakImpactReductionPct.ToString("0.00")%</span></div>
+        </div>
+        <p class="aurora-note">This is a single-step what-if on the current graph. It does not replay history, cost the mitigation, or model lead time for alternate sources.</p>
+
+        @if (Model.ExistingDecisionId is Guid existingId)
+        {
+            <p><a asp-controller="Decisions" asp-action="Details" asp-route-id="@existingId">A decision has already been proposed from this analysis &rarr;</a></p>
+        }
+        else if (Model.CanProposeDecision)
+        {
+            <h2>Propose as a decision</h2>
+            <p class="aurora-note">The proposer sets the feasibility, alignment, timing and confidence judgements. The financial and risk factors come from this analysis. The proposal then needs approval from someone else.</p>
+            <form asp-controller="Decisions" asp-action="Propose" method="post" class="aurora-form">
+                <input type="hidden" name="AnalysisRecordId" value="@Model.Record.Id" />
+                <label class="aurora-form__label">Operational feasibility (0-100)<input name="OperationalFeasibility" type="number" min="0" max="100" value="50" class="aurora-form__input" /></label>
+                <label class="aurora-form__label">Strategic alignment (0-100)<input name="StrategicAlignment" type="number" min="0" max="100" value="50" class="aurora-form__input" /></label>
+                <label class="aurora-form__label">Days until benefit (0-365)<input name="DaysToBenefit" type="number" min="0" max="365" value="90" class="aurora-form__input" /></label>
+                <label class="aurora-form__label">Evidence confidence (0-100)<input name="Confidence" type="number" min="0" max="100" value="50" class="aurora-form__input" /></label>
+                <button type="submit" class="aurora-btn aurora-btn--primary">Propose decision</button>
+            </form>
+        }
+    }
+
+    @if (Model.Optimization is { } opt)
+    {
+        <h2>Recommended plan</h2>
+        <p>Demand @opt.Demand.ToString("N2") units &middot; cost weight @opt.Recommended.CostWeight.ToString("P0") &middot; risk weight @opt.Recommended.RiskWeight.ToString("P0")</p>
+        <table class="aurora-table">
+            <thead><tr><th>Source</th><th>Units</th><th>Cost</th><th>Risk exposure</th></tr></thead>
+            <tbody>
+            @foreach (var line in opt.Recommended.Lines)
+            {
+                <tr><td>@line.Name</td><td>@line.Units.ToString("N2")</td><td>@line.Cost.ToString("C2")</td><td>@line.RiskExposure.ToString("N4")</td></tr>
+            }
+            <tr class="aurora-table__total"><td>Total</td><td>@opt.Recommended.TotalUnits.ToString("N2")</td><td>@opt.Recommended.TotalCost.ToString("C2")</td><td>@opt.Recommended.TotalRiskExposure.ToString("N4")</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Cost-risk frontier</h2>
+        <p class="aurora-note">Plans found by sweeping the cost weight in 10% steps. This shows supported points only, so it is an approximation of the full frontier.</p>
+        <table class="aurora-table">
+            <thead><tr><th>Cost weight</th><th>Total cost</th><th>Total risk exposure</th><th>Sources used</th></tr></thead>
+            <tbody>
+            @foreach (var plan in opt.ParetoFrontier)
+            {
+                <tr><td>@plan.CostWeight.ToString("P0")</td><td>@plan.TotalCost.ToString("C2")</td><td>@plan.TotalRiskExposure.ToString("N4")</td><td>@string.Join(", ", plan.Lines.Select(l => l.Name))</td></tr>
+            }
+            </tbody>
+        </table>
+    }
+
+    @if (Model.Forecast is { } fc)
+    {
+        <p>@fc.Observations observations &middot; level @fc.Level.ToString("N2") &middot; trend @fc.Trend.ToString("N2") per period &middot; smoothing alpha @fc.Alpha.ToString("0.0") beta @fc.Beta.ToString("0.0")</p>
+        <p>Holdout accuracy (MAPE): @(fc.BacktestMapePct.HasValue ? fc.BacktestMapePct.Value.ToString("0.00") + "%" : "not available for this series length")</p>
+        <table class="aurora-table">
+            <thead><tr><th>Step</th><th>Forecast</th><th>Lower</th><th>Upper</th></tr></thead>
+            <tbody>
+            @foreach (var point in fc.Points)
+            {
+                <tr><td>+@point.StepAhead</td><td>@point.Forecast.ToString("N2")</td><td>@point.Lower.ToString("N2")</td><td>@point.Upper.ToString("N2")</td></tr>
+            }
+            </tbody>
+        </table>
+        <p class="aurora-note">Intervals are approximate: they assume roughly normal residuals and widen with the square root of the horizon.</p>
+    }
+
+    <details class="aurora-disclosure">
+        <summary>Stored inputs</summary>
+        <pre class="aurora-code">@Model.Record.InputJson</pre>
+    </details>
+</section>

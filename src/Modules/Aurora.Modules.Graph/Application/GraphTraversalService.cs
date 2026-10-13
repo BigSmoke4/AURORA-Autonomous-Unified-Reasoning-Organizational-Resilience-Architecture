@@ -11,6 +11,9 @@ public sealed record ImpactedNode(Guid NodeId, int HopDistance, decimal Propagat
 /// </summary>
 public sealed class GraphTraversalService
 {
+    /// <summary>Propagated signals below this strength are treated as negligible.</summary>
+    public const decimal MinimumSignal = 0.02m;
+
     /// <summary>Breadth-first traversal outward along outgoing edges, returning visit order.</summary>
     public IReadOnlyList<Guid> BreadthFirstTraversal(GraphSnapshot snapshot, Guid startNodeId, int maxDepth = int.MaxValue)
     {
@@ -33,22 +36,6 @@ public sealed class GraphTraversalService
                 }
             }
         }
-        return order;
-    }
-
-    /// <summary>Depth-first traversal outward along outgoing edges, returning visit order.</summary>
-    public IReadOnlyList<Guid> DepthFirstTraversal(GraphSnapshot snapshot, Guid startNodeId, int maxDepth = int.MaxValue)
-    {
-        var visited = new HashSet<Guid>();
-        var order = new List<Guid>();
-        void Visit(Guid nodeId, int depth)
-        {
-            if (!visited.Add(nodeId) || depth > maxDepth) return;
-            order.Add(nodeId);
-            foreach (var edge in snapshot.OutgoingEdges(nodeId))
-                Visit(edge.TargetNodeId, depth + 1);
-        }
-        Visit(startNodeId, 0);
         return order;
     }
 
@@ -120,45 +107,60 @@ public sealed class GraphTraversalService
     public IReadOnlyList<ImpactedNode> DownstreamImpact(GraphSnapshot snapshot, Guid nodeId, int maxDepth = 8)
         => Propagate(snapshot, nodeId, maxDepth, useOutgoing: true);
 
+    /// <summary>
+    /// Max-product propagation. Each edge multiplies the signal by its strength (0..1], so a
+    /// signal can only weaken along a path. A priority queue settles nodes in decreasing order
+    /// of their best propagated strength, so each node reports the strongest path that reaches
+    /// it (not merely the first path discovered). Paths longer than maxDepth hops are not
+    /// expanded, and signals below MinimumSignal are dropped.
+    /// </summary>
     private IReadOnlyList<ImpactedNode> Propagate(GraphSnapshot snapshot, Guid startNodeId, int maxDepth, bool useOutgoing)
     {
-        var results = new List<ImpactedNode>();
-        var visited = new HashSet<Guid> { startNodeId };
-        var queue = new Queue<(Guid Id, int Depth, decimal Strength)>();
-        queue.Enqueue((startNodeId, 0, 1m));
+        var best = new Dictionary<Guid, (decimal Strength, int Hops)> { [startNodeId] = (1m, 0) };
+        var frontier = new PriorityQueue<Guid, decimal>();
+        frontier.Enqueue(startNodeId, -1m);
 
-        while (queue.Count > 0)
+        while (frontier.TryDequeue(out var current, out var negativeStrength))
         {
-            var (current, depth, strength) = queue.Dequeue();
-            if (depth >= maxDepth) continue;
+            var (strength, hops) = best[current];
+            if (-negativeStrength != strength) continue; // stale queue entry
+            if (hops >= maxDepth) continue;
 
             var edges = useOutgoing ? snapshot.OutgoingEdges(current) : snapshot.IncomingEdges(current);
             foreach (var edge in edges)
             {
                 var neighbor = useOutgoing ? edge.TargetNodeId : edge.SourceNodeId;
-                var propagated = strength * edge.Strength;
-                if (propagated < 0.02m) continue; // signal has decayed to negligible
+                if (neighbor == startNodeId) continue;
 
-                if (visited.Add(neighbor))
+                var propagated = strength * edge.Strength;
+                if (propagated < MinimumSignal) continue;
+
+                if (!best.TryGetValue(neighbor, out var existing) || propagated > existing.Strength)
                 {
-                    results.Add(new ImpactedNode(neighbor, depth + 1, propagated));
-                    queue.Enqueue((neighbor, depth + 1, propagated));
+                    best[neighbor] = (propagated, hops + 1);
+                    frontier.Enqueue(neighbor, -propagated);
                 }
             }
         }
-        return results.OrderByDescending(r => r.PropagatedStrength).ToList();
+
+        return best
+            .Where(entry => entry.Key != startNodeId)
+            .Select(entry => new ImpactedNode(entry.Key, entry.Value.Hops, entry.Value.Strength))
+            .OrderByDescending(node => node.PropagatedStrength)
+            .ThenBy(node => node.NodeId)
+            .ToList();
     }
 
     /// <summary>
-    /// Single-point-of-failure detection (spec section 8): a node is a SPOF if at least one
-    /// other node has no alternate path to any equivalent-type node once this one is removed —
-    /// approximated here as "this node has downstream dependents AND is the sole node of its
-    /// type feeding at least one of them" (in-degree concentration heuristic). Documented as an
-    /// approximation, not a full min-cut computation, so it stays fast enough to run per request.
+    /// Single-sourcing screen. Node X is flagged when at least one dependent D (an edge X -&gt; D)
+    /// has no other incoming supplier of X's node type. This is a local screen, not a minimum-cut
+    /// analysis: it does not look past the immediate dependent for alternate paths, so it can
+    /// over-report when a dependent has a longer backup route. Callers must present the result as
+    /// "single-sourced nodes", not as a proven set of single points of failure.
     /// </summary>
-    public IReadOnlyList<Guid> DetectSinglePointsOfFailure(GraphSnapshot snapshot)
+    public IReadOnlyList<Guid> DetectSingleSourcedNodes(GraphSnapshot snapshot)
     {
-        var spofs = new List<Guid>();
+        var singleSourced = new List<Guid>();
         foreach (var node in snapshot.Nodes.Values)
         {
             // Nodes that depend on 'node' are on the far end of node's OUTGOING edges
@@ -179,26 +181,11 @@ public sealed class GraphTraversalService
 
                 if (alternateSuppliers == 0)
                 {
-                    spofs.Add(node.Id);
+                    singleSourced.Add(node.Id);
                     break;
                 }
             }
         }
-        return spofs;
-    }
-
-    /// <summary>
-    /// Bottleneck score: nodes with the highest combined dependent-count × criticality, i.e.
-    /// nodes that many others depend on (found via OutgoingEdges — an edge Source -> Target
-    /// means Target depends on Source) AND that are individually flagged as high-criticality.
-    /// </summary>
-    public IReadOnlyList<(Guid NodeId, decimal Score)> DetectBottlenecks(GraphSnapshot snapshot, int top = 10)
-    {
-        return snapshot.Nodes.Values
-            .Select(n => (n.Id, Score: snapshot.OutgoingEdges(n.Id).Count * (decimal)n.Criticality))
-            .Where(x => x.Score > 0)
-            .OrderByDescending(x => x.Score)
-            .Take(top)
-            .ToList();
+        return singleSourced;
     }
 }

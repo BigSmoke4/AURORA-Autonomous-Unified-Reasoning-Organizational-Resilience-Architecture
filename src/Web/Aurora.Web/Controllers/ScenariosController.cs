@@ -1,3 +1,5 @@
+using Aurora.Modules.Audit.Application;
+using Aurora.Modules.Audit.Domain;
 using Aurora.Modules.Graph.Application;
 using Aurora.Modules.Scenarios.Application;
 using Aurora.Modules.Scenarios.Contracts;
@@ -20,14 +22,17 @@ public class ScenariosController : Controller
     private readonly IScenarioRepository _scenarioRepository;
     private readonly NaturalLanguageScenarioExtractor _nlExtractor;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly AuditRecorder _audit;
 
     public ScenariosController(
         CurrentOrganizationAccessor orgAccessor,
         IGraphProjectionService graphProjection,
         IScenarioRepository scenarioRepository,
         NaturalLanguageScenarioExtractor nlExtractor,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        AuditRecorder audit)
     {
+        _audit = audit;
         _orgAccessor = orgAccessor;
         _graphProjection = graphProjection;
         _scenarioRepository = scenarioRepository;
@@ -35,7 +40,7 @@ public class ScenariosController : Controller
         _userManager = userManager;
     }
 
-    [Authorize(Policy = "Scenario.Read")]
+    [Authorize(Policy = AuroraPermissions.ScenarioRead)]
     public async Task<IActionResult> Index(CancellationToken ct)
     {
         var org = await _orgAccessor.GetCurrentAsync(ct);
@@ -52,7 +57,7 @@ public class ScenariosController : Controller
         return View(vm);
     }
 
-    [Authorize(Policy = "Scenario.Create")]
+    [Authorize(Policy = AuroraPermissions.ScenarioCreate)]
     public async Task<IActionResult> Create(CancellationToken ct)
     {
         var org = await _orgAccessor.GetCurrentAsync(ct);
@@ -67,7 +72,7 @@ public class ScenariosController : Controller
     }
 
     [HttpPost]
-    [Authorize(Policy = "Scenario.Create")]
+    [Authorize(Policy = AuroraPermissions.ScenarioCreate)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CreateScenarioViewModel model, CancellationToken ct)
     {
@@ -89,6 +94,8 @@ public class ScenariosController : Controller
             startDateUtc: DateTime.UtcNow, createdByUserId: userId, assumptions: model.Assumptions);
 
         await _scenarioRepository.AddAsync(scenario, ct);
+        _audit.Record(org.Id, userId, User.ActorName(), AuditActions.ScenarioCreated, nameof(Scenario), scenario.Id.ToString(),
+            AuditOutcome.Success, $"Target {scenario.TargetNodeId}, severity {scenario.Severity:P0}, {scenario.DurationDays} day(s).");
         await _scenarioRepository.SaveChangesAsync(ct);
 
         return RedirectToAction("Details", "Simulation", new { scenarioId = scenario.Id });
@@ -98,7 +105,8 @@ public class ScenariosController : Controller
     /// command panel. Returns a ScenarioDraft for the user to confirm — it never auto-creates
     /// a scenario, and it flags any field it could not extract instead of guessing.</summary>
     [HttpPost("Scenarios/DraftFromText")]
-    [Authorize(Policy = "Scenario.Create")]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = AuroraPermissions.ScenarioCreate)]
     public async Task<IActionResult> DraftFromText([FromBody] NaturalLanguageScenarioRequest request, CancellationToken ct)
     {
         var org = await _orgAccessor.GetCurrentAsync(ct);
