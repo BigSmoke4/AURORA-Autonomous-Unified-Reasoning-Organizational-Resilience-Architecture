@@ -99,7 +99,7 @@ shows the rows exist, so the zero counts mean something.
   `/health/ready`, checks `/health/live`, the login page, and the Content Security Policy header, runs the k6 smoke load
   test, and runs an OWASP ZAP baseline scan. Each ZAP alert is published as a check annotation.
 - **Scheduled checks.** `nightly.yml` runs a 30-minute k6 soak and then an active OWASP ZAP full scan against the Production
-  container. `live-tests.yml` runs the opt-in `Category=Live` tests weekly, and only when the endpoint secrets are configured.
+  container, signed in as the bootstrap administrator. Its password is generated for each run, and the session cookies are passed to ZAP. `live-tests.yml` runs the opt-in `Category=Live` tests weekly, and only when the endpoint secrets are configured.
   Scheduled workflows run only from the default branch.
 
 ## Optimistic concurrency
@@ -268,8 +268,9 @@ These parts of the specification are not complete. The code contains no stubs or
 
 - **Live external feeds and model endpoints are unverified.** The HTTP adapters are tested with stubs, and the opt-in
   live tests have not run against a real provider.
-- **External penetration testing.** No third-party test has been commissioned. Dynamic scanning is an unauthenticated ZAP
-  baseline on every CI run and a full scan nightly. Authenticated scanning is not configured. See `docs/SECURITY-REVIEW.md`.
+- **External penetration testing.** No third-party test has been commissioned. Dynamic scanning is a ZAP baseline on every
+  CI run and a signed-in full scan nightly. The scan uses one account, so role boundaries are tested only by the HTTP tests.
+  See `docs/SECURITY-REVIEW.md`.
 - **Multi-hour soak testing.** CI runs a two-minute smoke load test, and the nightly job runs a 30-minute soak.
 
 See `README.md` for the roadmap.

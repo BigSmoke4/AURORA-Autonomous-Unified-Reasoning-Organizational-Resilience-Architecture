@@ -7,9 +7,6 @@ name: Nightly soak and active scan
 on:
   schedule:
     - cron: "17 2 * * *"
-  # TEMPORARY: runs on this working branch to validate the authenticated scan. Remove before merge.
-  push:
-    branches: [arena/837a16a4-aurora-autonomous-unified-reas]
   workflow_dispatch:
     inputs:
       soak_minutes:
@@ -42,7 +39,7 @@ jobs:
 
     env:
       AURORA_CONTAINER_CONNECTION: "Host=localhost;Port=5432;Database=aurora_test;Username=aurora;Password=ci_only_password"
-      SOAK_MINUTES: ${{ inputs.soak_minutes || (github.event_name == 'push' && '5') || '30' }}
+      SOAK_MINUTES: ${{ inputs.soak_minutes || '30' }}
 
     steps:
       - name: Checkout

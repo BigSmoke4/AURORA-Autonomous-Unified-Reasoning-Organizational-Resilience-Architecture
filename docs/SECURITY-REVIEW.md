@@ -17,7 +17,8 @@ external penetration test, and it is not a substitute for one.
   - The container smoke check and the k6 smoke load test, on every push (`.github/workflows/ci.yml`).
   - An OWASP ZAP baseline (passive) scan on every push.
   - A nightly job (`.github/workflows/nightly.yml`) with a 30-minute constant-rate k6 soak and an active OWASP ZAP full
-    scan.
+    scan. The scan signs in as the bootstrap administrator of the disposable container. Its password is generated for
+    each run and never stored, and the scan's session cookies are passed to ZAP.
   - Live feed and model checks (`.github/workflows/live-tests.yml`), which run only when their endpoints are configured.
 - Scan findings are published as check annotations, one per ZAP alert, and each one is reviewed by hand.
 
@@ -47,7 +48,8 @@ external penetration test, and it is not a substitute for one.
 | 20 | Cross-origin isolation | `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`, and `Cross-Origin-Embedder-Policy: require-corp` on every page. | **Finding, fixed.** The baseline scan reported these as missing (ZAP 90004). `Pages_AreCrossOriginIsolated` covers them. |
 | 21 | Sign-in return URL | The login `ReturnUrl` is redirected only when `Url.IsLocalUrl` accepts it, and it is HTML-encoded in the form. | Verified. The scan still reflects the value into an attribute (ZAP 10031), which is accepted with the reason below. |
 | 22 | Passive DAST | OWASP ZAP baseline on every CI run. Its findings are published as annotations. | Run (CI `38512399065`, passed). Only informational alerts, each accepted below. |
-| 23 | Active DAST | OWASP ZAP full scan nightly, against the production container. | Run (run `38512399223`, passed). Seven informational alerts, no vulnerabilities. The scan ran without signing in, so pages behind sign-in were not scanned. See residual risks. |
+| 23 | Active DAST | OWASP ZAP full scan nightly, signed in, against the production container. The scan reached the signed-in pages (checked from the container log). | Run (`38518246188`, passed). Only informational alerts remain. The scan found one real defect, row 24. |
+| 24 | Concurrent alert transitions | `POST /Alerts/Acknowledge/{id}` and `POST /Alerts/Resolve/{id}` save an alert read at the start of the request. Two concurrent requests for the same alert made the second save fail on the row version. The failure was not caught. | **Finding, fixed.** The scan reported a 500 from `Resolve` (ZAP 90022). The save now reports "The alert changed while you were working on it" and the audit row of the losing request is not written. CI builds and tests the change. The conflict path has no dedicated test. The scan confirmed the 500 is gone. |
 
 ## Findings and what changed
 - **Model key over plain http (12).** A deployment could have sent the model key without encryption. Startup now refuses
@@ -63,17 +65,19 @@ external penetration test, and it is not a substitute for one.
 - **Feed endpoint validation (11) and payload cap (10).** Added with the live feed adapters.
 
 ## Scan alerts and their dispositions
-The active and passive scans report only informational alerts. Each is accepted for the reason given.
+The passive and signed-in active scans now report only informational alerts. Each is accepted for the reason given.
 
 | ZAP alert | Level | Disposition |
 |-----------|-------|-------------|
-| 10031 User Controllable HTML Element Attribute | Low | Accepted. The sign-in `ReturnUrl` is reflected into the hidden field, but it is HTML-encoded and the redirect is only ever to a local URL. |
-| 10049 Storable and Cacheable Content (`robots.txt`, `/Account`) | Medium | Accepted as informational. The application sets no cache directive for these responses. `robots.txt` is public. Adding `Cache-Control: no-store` to pages that show user data is a candidate follow-up. |
-| 10049 Non-Storable Content | Medium | Informational only. It confirms that the pages are not cached. |
-| 10104 User Agent Fuzzer | Medium | Accepted as informational. The scanner reports that some responses differ by user agent. It is a difference in responses, not a vulnerability. |
-| 10111 Authentication Request Identified | High | Accepted. It identifies the login form. The login form is expected to be a target. |
-| 10112 Session Management Response Identified | Medium | Accepted. It identifies the response that sets the session cookie. This is expected. |
-| 90027 Cookie Slack Detector | Low | Accepted. It is a detector that lists cookie names for the report. It is not a vulnerability. |
+| 90022 Application Error Disclosure (`POST /Alerts/Resolve/{id}`, HTTP 500) | Low | **Fixed**, row 24. This was a real defect. |
+| 10031 User Controllable HTML Element Attribute (`POST /Assets/Create`, `GET /Knowledge?q=`, sign-in `ReturnUrl`) | Informational (confidence low) | Accepted. The values are echoed into `value="..."` attributes, and Razor HTML-encodes every one of them. The sign-in `ReturnUrl` is also redirected only when `Url.IsLocalUrl` accepts it. |
+| 90003 Information Disclosure - Suspicious Comments (`aurora.simulation.js`) | Informational (confidence medium) | Accepted. The comments describe the progress bar's behaviour. They contain no credentials, paths, or internal details. |
+| 10049 Storable and Cacheable Content (`robots.txt`, `/Account`) | Informational (confidence medium) | Accepted as informational. `robots.txt` is public. The scan flags whether a response may be cached, not what it contains, and the `/Account` response it reports shows no user data in its evidence. Setting `Cache-Control: no-store` on every page that shows user data is a candidate follow-up. |
+| 10049 Non-Storable Content | Informational (confidence medium) | Informational only. It confirms that the pages are not cached. |
+| 10104 User Agent Fuzzer | Informational (confidence medium) | Accepted as informational. The scanner reports that some responses differ by user agent. It is a difference in responses, not a vulnerability. |
+| 90027 Cookie Slack Detector | Informational (confidence low) | Accepted as informational. It lists cookie names observed on the signed-in forms. It is not a vulnerability. |
+| 10111 Authentication Request Identified | Informational (confidence high) | Accepted. It identifies the login form. The login form is expected to be a target. |
+| 10112 Session Management Response Identified | Informational (confidence medium) | Accepted. It identifies the response that sets the session cookie. This is expected. |
 
 ## Residual risks, accepted
 - **No external penetration test.** This review, the regression tests, and the automated scans have not replaced a
@@ -81,9 +85,9 @@ The active and passive scans report only informational alerts. Each is accepted 
 - **Live feeds and model endpoints were not exercised.** Their fixtures and stubs are tested. A live provider's behaviour,
   including its error responses, is unverified until its opt-in test runs with real credentials. `live-tests.yml`
   reports the gap as a warning while the endpoint secrets are absent. It does not fail.
-- **The active scan is unauthenticated.** ZAP does not sign in, so it does not reach the module pages or the POST forms
-  behind sign-in. Those are covered by the HTTP regression tests, not by the scanner. Authenticated scanning needs a ZAP
-  context with form login and anti-forgery token handling, and is not configured.
+- **The signed-in scan uses one account, the administrator.** It reaches the pages the administrator can open, and it
+  does not test the boundaries between roles. Those are covered by the HTTP regression tests, not by the scanner. The
+  scan also writes rows into its disposable database.
 - **The soak is 30 minutes.** Nightly CI runs a 30-minute constant-rate soak. A multi-hour soak in a dedicated
   environment has not been run.
 - **Session lifetime of 8 hours.** A stolen session stays valid for up to 8 hours after sign-in. Shorten
@@ -91,5 +95,4 @@ The active and passive scans report only informational alerts. Each is accepted 
 - **Client address trust depends on configuration.** If the reverse proxy is not listed in `Security:TrustedProxies`,
   the limit applies to the proxy's address. This is a deployment requirement, documented in the README.
 - **Scheduled scans run only from the default branch.** GitHub runs `schedule` and `workflow_dispatch` workflows only from
-  the default branch. Until this work is merged, the nightly soak and scan and the live workflow have run only on their
-  validation branch.
+  the default branch. The nightly soak, scan, and live workflow run from the default branch once this change is merged.
