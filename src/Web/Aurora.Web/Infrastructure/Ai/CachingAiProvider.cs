@@ -9,9 +9,8 @@ namespace Aurora.Web.Infrastructure.Ai;
 
 /// <summary>
 /// Caches model narratives in the shared cache (Redis when configured), so repeated identical evidence does not call
-/// the model again. The key is a hash of the model identity, the system prompt and the evidence, so a changed input
-/// never returns an old narrative. A narrative is the model's answer to exactly that input, so a cache hit reveals
-/// nothing the caller did not already send. A cache failure is logged and the model is called directly, so an
+/// the model again. The key is a hash of the organization, the model identity, the system prompt and the evidence, so
+/// a changed input never returns an old narrative, and no tenant can read or probe another tenant's entries. A cache failure is logged and the model is called directly, so an
 /// unavailable cache slows a request but does not fail it. Only successful narratives are cached.
 /// </summary>
 public sealed class CachingAiProvider(IAiProvider inner, IDistributedCache cache, TimeSpan timeToLive, ILogger<CachingAiProvider> logger) : IAiProvider
@@ -24,15 +23,15 @@ public sealed class CachingAiProvider(IAiProvider inner, IDistributedCache cache
 
     public string ModelVersion => inner.ModelVersion;
 
-    public async Task<NarrativeResult?> TryExplainAsync(string systemPrompt, string evidenceJson, CancellationToken ct = default)
+    public async Task<NarrativeResult?> TryExplainAsync(Guid organizationId, string systemPrompt, string evidenceJson, CancellationToken ct = default)
     {
-        if (timeToLive <= TimeSpan.Zero) return await inner.TryExplainAsync(systemPrompt, evidenceJson, ct);
+        if (timeToLive <= TimeSpan.Zero) return await inner.TryExplainAsync(organizationId, systemPrompt, evidenceJson, ct);
 
-        var key = KeyPrefix + Hash(ModelVersion, systemPrompt, evidenceJson);
+        var key = KeyPrefix + Hash(organizationId.ToString("N"), ModelVersion, systemPrompt, evidenceJson);
         var cached = await ReadAsync(key, ct);
         if (cached is not null) return cached;
 
-        var result = await inner.TryExplainAsync(systemPrompt, evidenceJson, ct);
+        var result = await inner.TryExplainAsync(organizationId, systemPrompt, evidenceJson, ct);
         if (result is not null) await WriteAsync(key, result, ct);
         return result;
     }

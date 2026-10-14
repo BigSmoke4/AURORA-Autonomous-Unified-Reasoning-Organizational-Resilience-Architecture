@@ -46,7 +46,7 @@ public sealed class OpenAiCompatibleAiProvider : IAiProvider
 
     public string ModelVersion => $"openai-compatible:{_options.Model}";
 
-    public async Task<NarrativeResult?> TryExplainAsync(string systemPrompt, string evidenceJson, CancellationToken ct = default)
+    public async Task<NarrativeResult?> TryExplainAsync(Guid organizationId, string systemPrompt, string evidenceJson, CancellationToken ct = default)
     {
         if (!IsConfigured) return null;
 

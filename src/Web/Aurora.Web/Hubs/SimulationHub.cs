@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Aurora.Modules.Identity.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Configuration;
 
 namespace Aurora.Web.Hubs;
 
@@ -11,7 +12,7 @@ namespace Aurora.Web.Hubs;
 /// organization claim, so a user can only join groups in their own tenant.
 /// </summary>
 [Authorize]
-public class SimulationHub : Hub
+public class SimulationHub(IConfiguration configuration) : AuroraHub(configuration)
 {
     public async Task JoinScenario(string scenarioId)
     {

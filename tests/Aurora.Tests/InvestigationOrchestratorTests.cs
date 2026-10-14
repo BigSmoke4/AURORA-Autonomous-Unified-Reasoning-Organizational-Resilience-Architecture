@@ -9,6 +9,8 @@ namespace Aurora.Tests;
 
 public class InvestigationOrchestratorTests
 {
+    private static readonly Guid TestOrganization = Guid.Parse("6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b");
+
     private readonly Guid _org = Guid.NewGuid();
     private readonly GraphNode _supplier;
     private readonly GraphNode _factory;
@@ -75,7 +77,7 @@ public class InvestigationOrchestratorTests
 
         public string ModelVersion => "fake";
 
-        public Task<NarrativeResult?> TryExplainAsync(string systemPrompt, string evidenceJson, CancellationToken ct = default) =>
+        public Task<NarrativeResult?> TryExplainAsync(Guid organizationId, string systemPrompt, string evidenceJson, CancellationToken ct = default) =>
             Task.FromResult(result);
     }
 }

@@ -14,6 +14,6 @@ public sealed class NullAiProvider : IAiProvider
 
     public string ModelVersion => Identity;
 
-    public Task<NarrativeResult?> TryExplainAsync(string systemPrompt, string evidenceJson, CancellationToken ct = default) =>
+    public Task<NarrativeResult?> TryExplainAsync(Guid organizationId, string systemPrompt, string evidenceJson, CancellationToken ct = default) =>
         Task.FromResult<NarrativeResult?>(null);
 }

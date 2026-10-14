@@ -10,6 +10,7 @@ using Aurora.Web.Validation;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Aurora.Web.Controllers;
 
@@ -58,6 +59,16 @@ public class KnowledgeController : ModuleControllerBase
         if (ModelState.IsValid && chunks.Count == 0)
         {
             ModelState.AddModelError(nameof(DocumentForm.Body), "The document has no text to index.");
+        }
+
+        if (ModelState.IsValid)
+        {
+            var existingChunks = await Db.Set<DocumentChunk>().CountAsync(ct);
+            if (!KnowledgeDocument.FitsOrganizationLimit(existingChunks, chunks.Count))
+            {
+                ModelState.AddModelError(nameof(DocumentForm.Body),
+                    $"This organization's knowledge base holds at most {KnowledgeDocument.MaxChunksPerOrganization} passages.");
+            }
         }
 
         if (!ModelState.IsValid)

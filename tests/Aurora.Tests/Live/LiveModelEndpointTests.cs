@@ -12,6 +12,8 @@ namespace Aurora.Tests.Live;
 [Trait("Category", "Live")]
 public sealed class LiveModelEndpointTests
 {
+    private static readonly Guid TestOrganization = Guid.Parse("6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b");
+
     private const string EndpointVariable = "AURORA_LIVE_MODEL_ENDPOINT";
     private const string ModelVariable = "AURORA_LIVE_MODEL_NAME";
     private const string KeyVariable = "AURORA_LIVE_MODEL_KEY";
@@ -40,7 +42,7 @@ public sealed class LiveModelEndpointTests
         using var client = new HttpClient { BaseAddress = new Uri(endpoint.TrimEnd('/') + "/"), Timeout = TimeSpan.FromSeconds(LiveTimeoutSeconds) };
         var provider = new OpenAiCompatibleAiProvider(client, options, NullLogger<OpenAiCompatibleAiProvider>.Instance);
 
-        var result = await provider.TryExplainAsync(SystemPrompt, Evidence);
+        var result = await provider.TryExplainAsync(TestOrganization, SystemPrompt, Evidence);
 
         Assert.NotNull(result);
         Assert.False(string.IsNullOrWhiteSpace(result!.Text));

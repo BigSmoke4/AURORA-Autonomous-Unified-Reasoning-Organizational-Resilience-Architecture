@@ -10,6 +10,8 @@ namespace Aurora.Tests;
 
 public class OpenAiCompatibleAiProviderTests
 {
+    private static readonly Guid TestOrganization = Guid.Parse("6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b");
+
     private const string Endpoint = "https://llm.example.test/v1";
     private const string ModelName = "test-model";
     private const string ApiKey = "test-key";
@@ -35,7 +37,7 @@ public class OpenAiCompatibleAiProviderTests
         var handler = new StubHandler(_ => Json(HttpStatusCode.OK, ChatBody("Supplier failure would stall the factory.")));
         var provider = CreateProvider(handler, ConfiguredOptions());
 
-        var result = await provider.TryExplainAsync("Explain the evidence.", "{\"RiskScore\":42}", CancellationToken.None);
+        var result = await provider.TryExplainAsync(TestOrganization, "Explain the evidence.", "{\"RiskScore\":42}", CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal("Supplier failure would stall the factory.", result!.Text);
@@ -48,7 +50,7 @@ public class OpenAiCompatibleAiProviderTests
         var handler = new StubHandler(_ => Json(HttpStatusCode.OK, ChatBody("Narrative.")));
         var provider = CreateProvider(handler, ConfiguredOptions());
 
-        await provider.TryExplainAsync("Explain the evidence.", "{\"RiskScore\":42}", CancellationToken.None);
+        await provider.TryExplainAsync(TestOrganization, "Explain the evidence.", "{\"RiskScore\":42}", CancellationToken.None);
 
         var request = Assert.Single(handler.Requests);
         Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
@@ -72,7 +74,7 @@ public class OpenAiCompatibleAiProviderTests
         var handler = new StubHandler(_ => Json(HttpStatusCode.InternalServerError, "{}"));
         var provider = CreateProvider(handler, ConfiguredOptions());
 
-        Assert.Null(await provider.TryExplainAsync("Explain.", "{}", CancellationToken.None));
+        Assert.Null(await provider.TryExplainAsync(TestOrganization, "Explain.", "{}", CancellationToken.None));
     }
 
     [Fact]
@@ -81,7 +83,7 @@ public class OpenAiCompatibleAiProviderTests
         var handler = new StubHandler(_ => Json(HttpStatusCode.OK, ChatBody("   ")));
         var provider = CreateProvider(handler, ConfiguredOptions());
 
-        Assert.Null(await provider.TryExplainAsync("Explain.", "{}", CancellationToken.None));
+        Assert.Null(await provider.TryExplainAsync(TestOrganization, "Explain.", "{}", CancellationToken.None));
     }
 
     [Fact]
@@ -91,7 +93,7 @@ public class OpenAiCompatibleAiProviderTests
         var handler = new StubHandler(_ => Json(HttpStatusCode.OK, ChatBody(longText)));
         var provider = CreateProvider(handler, ConfiguredOptions());
 
-        var result = await provider.TryExplainAsync("Explain.", "{}", CancellationToken.None);
+        var result = await provider.TryExplainAsync(TestOrganization, "Explain.", "{}", CancellationToken.None);
 
         Assert.Equal(OpenAiCompatibleAiProvider.MaxNarrativeLength, result!.Text.Length);
     }
@@ -102,7 +104,7 @@ public class OpenAiCompatibleAiProviderTests
         var handler = new StubHandler(_ => Json(HttpStatusCode.OK, ChatBody("Unused.")));
         var provider = CreateProvider(handler, new AiOptions { Provider = "None" });
 
-        Assert.Null(await provider.TryExplainAsync("Explain.", "{}", CancellationToken.None));
+        Assert.Null(await provider.TryExplainAsync(TestOrganization, "Explain.", "{}", CancellationToken.None));
         Assert.Empty(handler.Requests);
     }
 

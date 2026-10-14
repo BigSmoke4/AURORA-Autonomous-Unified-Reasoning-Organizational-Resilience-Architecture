@@ -18,6 +18,7 @@ public interface IAiProvider
     /// <summary>
     /// Returns a narrative, or null when the provider is not configured, is unavailable, times out,
     /// or returns nothing usable. Callers then fall back to the deterministic narrative (spec section 71).
+    /// The organization scopes any cache, so one tenant never reads or probes another tenant's narrative.
     /// </summary>
-    Task<NarrativeResult?> TryExplainAsync(string systemPrompt, string evidenceJson, CancellationToken ct = default);
+    Task<NarrativeResult?> TryExplainAsync(Guid organizationId, string systemPrompt, string evidenceJson, CancellationToken ct = default);
 }

@@ -122,7 +122,7 @@ public sealed class InvestigationOrchestrator
             EstimatedRevenueAtRisk = Math.Round(totalRevenueAtRisk, 0),
         });
 
-        var generated = await _aiProvider.TryExplainAsync(SystemPrompt, evidenceForNarrative, ct);
+        var generated = await _aiProvider.TryExplainAsync(organizationId, SystemPrompt, evidenceForNarrative, ct);
         var narrative = generated?.Text
             ?? BuildFallbackNarrative(targetNode.DisplayName, downstream.Count, isSingleSourced, riskScore, totalRevenueAtRisk);
 

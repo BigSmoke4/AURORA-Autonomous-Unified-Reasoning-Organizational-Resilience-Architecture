@@ -10,6 +10,8 @@ namespace Aurora.Tests.Infrastructure;
 
 public sealed class CachingAiProviderTests
 {
+    private static readonly Guid TestOrganization = Guid.Parse("6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b");
+
     private const string SystemPrompt = "Explain the evidence without inventing numbers.";
     private const string Evidence = "{\"metric\":\"cycle time\",\"value\":14.2}";
     private const string OtherEvidence = "{\"metric\":\"cycle time\",\"value\":15.0}";
@@ -21,8 +23,8 @@ public sealed class CachingAiProviderTests
         var inner = new CountingProvider(new NarrativeResult("Cycle time is within the window.", "model-a"));
         var provider = CreateProvider(inner, new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions())), OneHour);
 
-        var first = await provider.TryExplainAsync(SystemPrompt, Evidence);
-        var second = await provider.TryExplainAsync(SystemPrompt, Evidence);
+        var first = await provider.TryExplainAsync(TestOrganization, SystemPrompt, Evidence);
+        var second = await provider.TryExplainAsync(TestOrganization, SystemPrompt, Evidence);
 
         Assert.Equal(1, inner.Calls);
         Assert.Equal(first, second);
@@ -34,8 +36,8 @@ public sealed class CachingAiProviderTests
         var inner = new CountingProvider(new NarrativeResult("Text.", "model-a"));
         var provider = CreateProvider(inner, new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions())), OneHour);
 
-        await provider.TryExplainAsync(SystemPrompt, Evidence);
-        await provider.TryExplainAsync(SystemPrompt, OtherEvidence);
+        await provider.TryExplainAsync(TestOrganization, SystemPrompt, Evidence);
+        await provider.TryExplainAsync(TestOrganization, SystemPrompt, OtherEvidence);
 
         Assert.Equal(2, inner.Calls);
     }
@@ -46,8 +48,8 @@ public sealed class CachingAiProviderTests
         var inner = new CountingProvider(null);
         var provider = CreateProvider(inner, new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions())), OneHour);
 
-        Assert.Null(await provider.TryExplainAsync(SystemPrompt, Evidence));
-        Assert.Null(await provider.TryExplainAsync(SystemPrompt, Evidence));
+        Assert.Null(await provider.TryExplainAsync(TestOrganization, SystemPrompt, Evidence));
+        Assert.Null(await provider.TryExplainAsync(TestOrganization, SystemPrompt, Evidence));
 
         Assert.Equal(2, inner.Calls);
     }
@@ -58,8 +60,8 @@ public sealed class CachingAiProviderTests
         var inner = new CountingProvider(new NarrativeResult("Text.", "model-a"));
         var provider = CreateProvider(inner, new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions())), TimeSpan.Zero);
 
-        await provider.TryExplainAsync(SystemPrompt, Evidence);
-        await provider.TryExplainAsync(SystemPrompt, Evidence);
+        await provider.TryExplainAsync(TestOrganization, SystemPrompt, Evidence);
+        await provider.TryExplainAsync(TestOrganization, SystemPrompt, Evidence);
 
         Assert.Equal(2, inner.Calls);
     }
@@ -71,10 +73,23 @@ public sealed class CachingAiProviderTests
         var inner = new CountingProvider(expected);
         var provider = CreateProvider(inner, new FailingCache(), OneHour);
 
-        var result = await provider.TryExplainAsync(SystemPrompt, Evidence);
+        var result = await provider.TryExplainAsync(TestOrganization, SystemPrompt, Evidence);
 
         Assert.Equal(expected, result);
         Assert.Equal(1, inner.Calls);
+    }
+
+    [Fact]
+    public async Task IdenticalEvidence_ForAnotherOrganization_IsNeverServedFromTheFirstTenantsEntry()
+    {
+        var inner = new CountingProvider(new NarrativeResult("Text.", "model-a"));
+        var provider = CreateProvider(inner, new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions())), OneHour);
+        var otherOrganization = Guid.Parse("0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d");
+
+        await provider.TryExplainAsync(TestOrganization, SystemPrompt, Evidence);
+        await provider.TryExplainAsync(otherOrganization, SystemPrompt, Evidence);
+
+        Assert.Equal(2, inner.Calls);
     }
 
     private static CachingAiProvider CreateProvider(IAiProvider inner, IDistributedCache cache, TimeSpan timeToLive) =>
@@ -88,7 +103,7 @@ public sealed class CachingAiProviderTests
 
         public string ModelVersion => "model-a";
 
-        public Task<NarrativeResult?> TryExplainAsync(string systemPrompt, string evidenceJson, CancellationToken ct = default)
+        public Task<NarrativeResult?> TryExplainAsync(Guid organizationId, string systemPrompt, string evidenceJson, CancellationToken ct = default)
         {
             Calls++;
             return Task.FromResult(result);
