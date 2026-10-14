@@ -84,7 +84,25 @@ jobs:
           # The scan is bounded to 30 minutes. It runs against a disposable container with no real data.
           docker run --rm --network host -v "$GITHUB_WORKSPACE/zap-report:/zap/wrk:rw" \
             ghcr.io/zaproxy/zaproxy:stable \
-            zap-full-scan.py -t http://localhost:8080 -r zap-full.html -w zap-full.md -J zap-full.json -T 30 -I
+            zap-full-scan.py -t http://localhost:8080 -r zap-full.html -w zap-full.md -J REPORT.json -T 30 -I
+
+      - name: Publish the findings
+        if: always()
+        run: |
+          report=zap-report/REPORT.json
+          if [ ! -f "$report" ]; then
+            echo "::warning::No ZAP JSON report was produced."
+            exit 0
+          fi
+          # One annotation per alert, so the findings are readable from the check run. Risk codes: 0 info, 1 low, 2 medium, 3 high.
+          jq -r '.site[]?.alerts[]? | "\(.riskcode)\t\(.riskdesc)\t\(.name)\t\(.pluginid)\t\((.instances // []) | length)\t\(.instances[0].uri // "")"' "$report" \
+            | while IFS=$'\t' read -r code risk name plugin count uri; do
+                level=notice
+                if [ "$code" -ge 2 ]; then level=error; elif [ "$code" -eq 1 ]; then level=warning; fi
+                echo "::${level} title=ZAP ${plugin}::${risk}: ${name} (${count} instance(s), e.g. ${uri})"
+                echo "- ${risk}: ${name} (plugin ${plugin}, ${count} instance(s), e.g. ${uri})" >> "$GITHUB_STEP_SUMMARY"
+              done
+          echo "Alerts listed above." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the ZAP report
         if: always()
