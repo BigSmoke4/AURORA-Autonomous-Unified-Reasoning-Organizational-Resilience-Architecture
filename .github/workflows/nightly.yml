@@ -83,13 +83,14 @@ jobs:
       - name: Sign in as the scan account
         run: |
           jar="$(mktemp)"
+          headers="$(mktemp)"
           curl --fail --silent --show-error --cookie-jar "$jar" http://localhost:8080/Account/Login > login.html
           token="$(grep -o '<input name="__RequestVerificationToken" type="hidden" value="[^"]*"' login.html | sed 's/.*value="//; s/"$//')"
           if [ -z "$token" ]; then
             echo "::error::The login form has no anti-forgery token."
             exit 1
           fi
-          status="$(curl --silent --output /dev/null --write-out '%{http_code}' --cookie "$jar" --cookie-jar "$jar" \
+          status="$(curl --silent --output /dev/null --dump-header "$headers" --write-out '%{http_code}' --cookie "$jar" --cookie-jar "$jar" \
             --data-urlencode "Email=admin@aurora.local" \
             --data-urlencode "Password=$SCAN_ADMIN_PASSWORD" \
             --data-urlencode "RememberMe=false" \
@@ -100,19 +101,21 @@ jobs:
             echo "::error::Sign-in returned $status instead of a redirect."
             exit 1
           fi
-          cookie="$(awk '$6 == "aurora.auth" { print $7 }' "$jar")"
+          set_cookie="$(tr -d '\r' < "$headers" | grep -i '^set-cookie: aurora.auth=' | head -n 1 || true)"
+          cookie="$(printf '%s' "$set_cookie" | sed -E 's/^[Ss]et-[Cc]ookie: aurora\.auth=([^;]*).*/\1/')"
           if [ -z "$cookie" ]; then
             echo "::error::Sign-in set no aurora.auth cookie."
             exit 1
           fi
           echo "::add-mask::$cookie"
           echo "AURORA_SESSION_COOKIE=$cookie" >> "$GITHUB_ENV"
-          anonymous="$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8080/Scenarios)"
-          signed_in="$(curl --silent --output /dev/null --write-out '%{http_code}' --cookie "aurora.auth=$cookie" http://localhost:8080/Scenarios)"
+          echo "Set-Cookie attributes: $(printf '%s' "$set_cookie" | sed -E 's/aurora\.auth=[^;]*/aurora.auth=<redacted>/')"
+          anonymous="$(curl --silent --output /dev/null --write-out '%{http_code} %{redirect_url}' http://localhost:8080/Scenarios)"
+          signed_in="$(curl --silent --output /dev/null --write-out '%{http_code} %{redirect_url}' --cookie "aurora.auth=$cookie" http://localhost:8080/Scenarios)"
           echo "Anonymous /Scenarios: $anonymous. Signed in: $signed_in."
-          if [ "$anonymous" != "302" ] || [ "$signed_in" != "200" ]; then
+          if [ "${anonymous%% *}" != "302" ] || [ "${signed_in%% *}" != "200" ]; then
             recent="$(docker logs aurora-web 2>&1 | grep 'responded' | tail -n 5 | tr '\n' '|')"
-            echo "::error::Anonymous /Scenarios returned $anonymous and signed-in returned $signed_in. Recent requests: $recent"
+            echo "::error::Anonymous /Scenarios returned $anonymous; signed-in returned $signed_in. Recent requests: $recent"
             exit 1
           fi
 
