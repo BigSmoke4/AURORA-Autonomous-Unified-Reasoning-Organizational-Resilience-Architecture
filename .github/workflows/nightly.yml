@@ -111,7 +111,8 @@ jobs:
           signed_in="$(curl --silent --output /dev/null --write-out '%{http_code}' --cookie "aurora.auth=$cookie" http://localhost:8080/Scenarios)"
           echo "Anonymous /Scenarios: $anonymous. Signed in: $signed_in."
           if [ "$anonymous" != "302" ] || [ "$signed_in" != "200" ]; then
-            echo "::error::The session does not separate anonymous and signed-in access."
+            recent="$(docker logs aurora-web 2>&1 | grep 'responded' | tail -n 5 | tr '\n' '|')"
+            echo "::error::Anonymous /Scenarios returned $anonymous and signed-in returned $signed_in. Recent requests: $recent"
             exit 1
           fi
 
