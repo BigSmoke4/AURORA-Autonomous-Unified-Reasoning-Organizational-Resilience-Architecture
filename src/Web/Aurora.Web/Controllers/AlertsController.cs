@@ -69,10 +69,7 @@ public class AlertsController : ModuleControllerBase
         }
 
         RecordAudit(org, AuditActions.AlertAcknowledged, nameof(Alert), alert.Id.ToString());
-        await Db.SaveChangesAsync(ct);
-
-        Success("Alert acknowledged.");
-        return RedirectToAction(nameof(Index));
+        return await SaveTransitionAsync("Alert acknowledged.", ct);
     }
 
     [HttpPost]
@@ -97,9 +94,26 @@ public class AlertsController : ModuleControllerBase
         }
 
         RecordAudit(org, AuditActions.AlertResolved, nameof(Alert), alert.Id.ToString());
-        await Db.SaveChangesAsync(ct);
+        return await SaveTransitionAsync("Alert resolved.", ct);
+    }
 
-        Success("Alert resolved.");
+    /// <summary>
+    /// Saves a transition. When another request changed the alert first, the save conflicts; the user is told to
+    /// reload instead of receiving a server error, and the audit row of this request is not written.
+    /// </summary>
+    private async Task<IActionResult> SaveTransitionAsync(string successMessage, CancellationToken ct)
+    {
+        try
+        {
+            await Db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            Failure("The alert changed while you were working on it. Reload the page and try again.");
+            return RedirectToAction(nameof(Index));
+        }
+
+        Success(successMessage);
         return RedirectToAction(nameof(Index));
     }
 
