@@ -160,12 +160,12 @@ jobs:
             exit 0
           fi
           # One annotation per alert, so the findings are readable from the check run. Risk codes: 0 info, 1 low, 2 medium, 3 high.
-          jq -r '.site[]?.alerts[]? | "\(.riskcode)\t\(.riskdesc)\t\(.name)\t\(.pluginid)\t\((.instances // []) | length)\t\(.instances[0].uri // "")"' "$report" \
-            | while IFS=$'\t' read -r code risk name plugin count uri; do
+          jq -r '.site[]?.alerts[]? | "\(.riskcode)\t\(.riskdesc)\t\(.name)\t\(.pluginid)\t\((.instances // []) | length)\t\(.instances[0].uri // "")\t\(.instances[0].method // "")\t\((.instances[0].evidence // "")[0:160] | gsub("\\s+"; " "))"' "$report" \
+            | while IFS=$'\t' read -r code risk name plugin count uri method evidence; do
                 level=notice
                 if [ "$code" -ge 2 ]; then level=error; elif [ "$code" -eq 1 ]; then level=warning; fi
-                echo "::${level} title=ZAP ${plugin}::${risk}: ${name} (${count} instance(s), e.g. ${uri})"
-                echo "- ${risk}: ${name} (plugin ${plugin}, ${count} instance(s), e.g. ${uri})" >> "$GITHUB_STEP_SUMMARY"
+                echo "::${level} title=ZAP ${plugin}::${risk}: ${name} (${count} instance(s), e.g. ${method} ${uri}; evidence: ${evidence})"
+                echo "- ${risk}: ${name} (plugin ${plugin}, ${count} instance(s), e.g. ${method} ${uri}; evidence: ${evidence})" >> "$GITHUB_STEP_SUMMARY"
               done
           echo "Alerts listed above." >> "$GITHUB_STEP_SUMMARY"
 
