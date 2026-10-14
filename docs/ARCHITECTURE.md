@@ -96,7 +96,11 @@ shows the rows exist, so the zero counts mean something.
 - **CI.** Every push runs two jobs. `build-and-test` restores, runs a vulnerable-package audit (failing on any
   known advisory), builds with warnings as errors, checks the EF model against the migrations, and runs the tests.
   `container-smoke` builds the image, starts it in Production mode against a PostgreSQL service, waits for
-  `/health/ready`, and checks `/health/live`, the login page, and the Content Security Policy header.
+  `/health/ready`, checks `/health/live`, the login page, and the Content Security Policy header, runs the k6 smoke load
+  test, and runs an OWASP ZAP baseline scan. Each ZAP alert is published as a check annotation.
+- **Scheduled checks.** `nightly.yml` runs a 30-minute k6 soak and then an active OWASP ZAP full scan against the Production
+  container. `live-tests.yml` runs the opt-in `Category=Live` tests weekly, and only when the endpoint secrets are configured.
+  Scheduled workflows run only from the default branch.
 
 ## Optimistic concurrency
 
@@ -226,7 +230,9 @@ first start, and then the markers take over.
   stores the exception type, not the stack trace, and the message is retried until it reaches 5 attempts.
 - Delivery is at least once, so handlers must be idempotent. `DomainEventLogHandler` writes one structured log entry.
   `OrganizationNotificationHandler` sends a `domainEvent` message to the SignalR group `org:{organizationId}` through
-  `/hubs/organization`. Each connection joins only its own organization's group.
+  `/hubs/organization`. Each connection joins only its own organization's group. `AuroraHub` refuses any connection whose
+  `Origin` is not this application's own origin or listed in `Security:AllowedOrigins`, and refuses a connection with no
+  origin.
 
 ## Snapshots, feeds, jobs, and retrieval
 
@@ -252,8 +258,9 @@ These services were added with ADRs 008 to 010.
 - **Vulnerability linkage.** `VulnerabilityFeedIngestor` upserts advisories by organization and CVE. `PatchExposureCalculator`
   matches a patch policy's product to advisories published after the last patch, and computes the deadline and severity.
   The bundled fixture is used unless `ExternalFeeds:Vulnerabilities` is configured. See ADR 011.
-- **Shared narrative cache.** `CachingAiProvider` decorates the model provider. Redis holds the cache when
-  `ConnectionStrings:Redis` is set, and process memory holds it otherwise. A cache failure never fails a request.
+- **Shared narrative cache.** `CachingAiProvider` decorates the model provider. The key includes the organization, so a
+  tenant never receives another tenant's narrative. Redis holds the cache when `ConnectionStrings:Redis` is set, and process
+  memory holds it otherwise. A cache failure never fails a request.
 
 ## What is intentionally not implemented
 
@@ -261,7 +268,8 @@ These parts of the specification are not complete. The code contains no stubs or
 
 - **Live external feeds and model endpoints are unverified.** The HTTP adapters are tested with stubs, and the opt-in
   live tests have not run against a real provider.
-- **Penetration testing and dynamic scanning.** See `docs/SECURITY-REVIEW.md`.
-- **Multi-hour soak testing.** CI runs a two-minute smoke load test from `tests/load`.
+- **External penetration testing.** No third-party test has been commissioned. Dynamic scanning is an unauthenticated ZAP
+  baseline on every CI run and a full scan nightly. Authenticated scanning is not configured. See `docs/SECURITY-REVIEW.md`.
+- **Multi-hour soak testing.** CI runs a two-minute smoke load test, and the nightly job runs a 30-minute soak.
 
 See `README.md` for the roadmap.

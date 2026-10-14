@@ -42,8 +42,9 @@ providers. Every decision below is therefore testable with fixtures and stubs, a
 - `PatchExposureCalculator` is a pure function over values. The model is never involved in these numbers.
 
 ### Shared cache for narratives
-- `CachingAiProvider` decorates the model provider. The key is a SHA-256 of the model version, the system prompt,
-  and the evidence JSON, under the prefix `ai-narrative:v1:`. Changing the model therefore invalidates every entry.
+- `CachingAiProvider` decorates the model provider. The key is a SHA-256 of the organization, the model version, the
+  system prompt, and the evidence JSON, under the prefix `ai-narrative:v1:`. Changing the model therefore invalidates every
+  entry. Including the organization means that two tenants with identical evidence never share an entry. A test pins this.
 - Entries live for `AI:CacheMinutes` (default 60). Zero disables the cache.
 - Only a successful answer is cached. A failure from the cache is logged and ignored, so a Redis outage never fails
   a request.
@@ -62,10 +63,13 @@ providers. Every decision below is therefore testable with fixtures and stubs, a
   environment, and none runs in a normal test run. They have not been run against a real provider.
 - The container job runs `tests/load/aurora-smoke.js` with k6 at a constant 20 requests per second for two minutes.
   The run fails if the 95th percentile exceeds 800 ms, more than 1 percent of requests fail, or fewer than 99 percent
-  of checks pass.
+  of checks pass. The nightly job runs the same script for 30 minutes (`SOAK_MINUTES`).
+- The live tests run from `live-tests.yml` only when the endpoint secrets are present. Without them the workflow
+  emits a warning and passes. It does not claim that the live path was tested.
 
 ## Consequences
 - Adding a feed means writing one adapter and one parser. The ingestion, job, and validation paths are shared.
 - A live feed can be enabled by configuration alone. Its correctness against the real provider's format is not
   established until someone runs the live test with that provider's credentials.
-- The two-minute k6 run is a smoke load test, not a soak. A soak needs a longer run on a dedicated environment.
+- The two-minute k6 run is a smoke test. The nightly 30-minute soak is longer, but it is not a multi-hour soak on a
+  dedicated environment.

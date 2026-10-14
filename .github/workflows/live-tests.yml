@@ -9,9 +9,6 @@ name: Live feed and model checks
 on:
   schedule:
     - cron: "41 3 * * 1"
-  # TEMPORARY: runs on this working branch so the workflow can be checked before it reaches the default branch. Remove before merge.
-  push:
-    branches: [arena/837a16a4-aurora-autonomous-unified-reas]
   workflow_dispatch:
 
 permissions:
