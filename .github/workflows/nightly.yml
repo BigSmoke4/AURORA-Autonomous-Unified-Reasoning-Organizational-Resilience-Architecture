@@ -1,0 +1,103 @@
+name: Nightly soak and active scan
+
+# Long-running checks that are too slow for every push: a 30-minute constant-rate soak, then an active OWASP ZAP scan.
+# Both run against a fresh container built from the same commit, with a disposable PostgreSQL database.
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      soak_minutes:
+        description: "Soak duration in minutes"
+        required: false
+        default: "30"
+
+permissions:
+  contents: read
+
+jobs:
+  soak-and-active-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aurora_test
+          POSTGRES_USER: aurora
+          POSTGRES_PASSWORD: ci_only_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aurora -d aurora_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      AURORA_CONTAINER_CONNECTION: "Host=localhost;Port=5432;Database=aurora_test;Username=aurora;Password=ci_only_password"
+      SOAK_MINUTES: ${{ inputs.soak_minutes || '30' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build the web image
+        run: docker build --tag aurora-web:nightly .
+
+      - name: Start the container in Production mode
+        run: |
+          docker run --detach --name aurora-web --network host \
+            -e ASPNETCORE_ENVIRONMENT=Production \
+            -e ASPNETCORE_URLS=http://+:8080 \
+            -e Security__RequireHttps=false \
+            -e ConnectionStrings__AuroraDb="$AURORA_CONTAINER_CONNECTION" \
+            aurora-web:nightly
+
+      - name: Wait for readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://localhost:8080/health/ready > /dev/null; then
+              echo "Ready after attempt $attempt."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::The container did not become ready."
+          docker logs --tail 200 aurora-web 2>&1 | tail -n 200
+          exit 1
+
+      - name: Soak (constant arrival rate)
+        run: |
+          docker run --rm --network host \
+            -v "$GITHUB_WORKSPACE/tests/load:/scripts:ro" \
+            -e BASE_URL=http://localhost:8080 \
+            -e DURATION="${SOAK_MINUTES}m" \
+            -e RATE=20 \
+            grafana/k6:latest run /scripts/aurora-smoke.js
+
+      - name: Active security scan (OWASP ZAP full scan)
+        run: |
+          mkdir -p zap-report && chmod 777 zap-report
+          # The scan is bounded to 30 minutes. It runs against a disposable container with no real data.
+          docker run --rm --network host -v "$GITHUB_WORKSPACE/zap-report:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-full-scan.py -t http://localhost:8080 -r zap-full.html -w zap-full.md -J zap-full.json -T 30 -I
+
+      - name: Upload the ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-full-report
+          path: zap-report/
+          if-no-files-found: ignore
+
+      - name: Container logs
+        if: always()
+        run: docker logs aurora-web || true
+
+      - name: Stop the container
+        if: always()
+        run: docker rm --force aurora-web || true

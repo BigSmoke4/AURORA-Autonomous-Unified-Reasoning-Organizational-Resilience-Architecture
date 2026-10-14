@@ -170,6 +170,22 @@ jobs:
             -e RATE=20 \
             grafana/k6:latest run /scripts/aurora-smoke.js
 
+      - name: Passive security scan (OWASP ZAP baseline)
+        run: |
+          mkdir -p zap-report && chmod 777 zap-report
+          # Passive rules plus a short spider. Warnings are reported, and only failing rules fail the job.
+          docker run --rm --network host -v "$GITHUB_WORKSPACE/zap-report:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://localhost:8080 -r zap-baseline.html -w zap-baseline.md -I
+
+      - name: Upload the ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: zap-report/
+          if-no-files-found: ignore
+
       - name: Container logs
         if: always()
         run: docker logs aurora-web || true

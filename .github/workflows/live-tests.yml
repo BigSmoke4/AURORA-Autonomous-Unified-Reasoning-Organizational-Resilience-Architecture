@@ -1,0 +1,64 @@
+name: Live feed and model checks
+
+# Calls the real feed and model endpoints. It runs only when the endpoints are configured as repository secrets, so
+# it never runs on pull requests and never runs with credentials from a fork. Set these repository secrets:
+#   AURORA_LIVE_METRIC_FEED_URL, AURORA_LIVE_METRIC_FEED_KEY (optional),
+#   AURORA_LIVE_VULNERABILITY_FEED_URL, AURORA_LIVE_VULNERABILITY_FEED_KEY (optional),
+#   AURORA_LIVE_MODEL_ENDPOINT, AURORA_LIVE_MODEL_NAME, AURORA_LIVE_MODEL_KEY.
+
+on:
+  schedule:
+    - cron: "41 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      AURORA_LIVE_METRIC_FEED_URL: ${{ secrets.AURORA_LIVE_METRIC_FEED_URL }}
+      AURORA_LIVE_METRIC_FEED_KEY: ${{ secrets.AURORA_LIVE_METRIC_FEED_KEY }}
+      AURORA_LIVE_VULNERABILITY_FEED_URL: ${{ secrets.AURORA_LIVE_VULNERABILITY_FEED_URL }}
+      AURORA_LIVE_VULNERABILITY_FEED_KEY: ${{ secrets.AURORA_LIVE_VULNERABILITY_FEED_KEY }}
+      AURORA_LIVE_MODEL_ENDPOINT: ${{ secrets.AURORA_LIVE_MODEL_ENDPOINT }}
+      AURORA_LIVE_MODEL_NAME: ${{ secrets.AURORA_LIVE_MODEL_NAME }}
+      AURORA_LIVE_MODEL_KEY: ${{ secrets.AURORA_LIVE_MODEL_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Report what is configured
+        run: |
+          if [ -z "$AURORA_LIVE_METRIC_FEED_URL$AURORA_LIVE_VULNERABILITY_FEED_URL$AURORA_LIVE_MODEL_ENDPOINT" ]; then
+            echo "::warning::No live endpoint is configured as a secret. Nothing was exercised."
+            echo "Live checks: not configured. No live endpoint was called." >> "$GITHUB_STEP_SUMMARY"
+            echo "NOT_CONFIGURED=true" >> "$GITHUB_ENV"
+          else
+            echo "Live checks: configured. Running against the endpoints named in the repository secrets." >> "$GITHUB_STEP_SUMMARY"
+            echo "NOT_CONFIGURED=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Setup .NET
+        if: env.NOT_CONFIGURED == 'false'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Live tests
+        if: env.NOT_CONFIGURED == 'false'
+        run: dotnet test tests/Aurora.Tests/Aurora.Tests.csproj --filter "Category=Live" --logger "trx;LogFileName=live.trx" --results-directory live-results
+
+      - name: Upload the results
+        if: always() && env.NOT_CONFIGURED == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-test-results
+          path: live-results/
+          if-no-files-found: ignore
