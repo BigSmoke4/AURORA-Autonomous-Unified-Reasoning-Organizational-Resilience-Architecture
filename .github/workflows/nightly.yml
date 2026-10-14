@@ -1,11 +1,15 @@
 name: Nightly soak and active scan
 
 # Long-running checks that are too slow for every push: a 30-minute constant-rate soak, then an active OWASP ZAP scan.
+# The scan runs signed in as a bootstrap account whose password is generated for each run, so nothing is stored.
 # Both run against a fresh container built from the same commit, with a disposable PostgreSQL database.
 
 on:
   schedule:
     - cron: "17 2 * * *"
+  # TEMPORARY: runs on this working branch to validate the authenticated scan. Remove before merge.
+  push:
+    branches: [arena/837a16a4-aurora-autonomous-unified-reas]
   workflow_dispatch:
     inputs:
       soak_minutes:
@@ -38,7 +42,7 @@ jobs:
 
     env:
       AURORA_CONTAINER_CONNECTION: "Host=localhost;Port=5432;Database=aurora_test;Username=aurora;Password=ci_only_password"
-      SOAK_MINUTES: ${{ inputs.soak_minutes || '30' }}
+      SOAK_MINUTES: ${{ inputs.soak_minutes || (github.event_name == 'push' && '5') || '30' }}
 
     steps:
       - name: Checkout
@@ -47,6 +51,12 @@ jobs:
       - name: Build the web image
         run: docker build --tag aurora-web:nightly .
 
+      - name: Create the scan account password
+        run: |
+          password="Aa1!$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          echo "SCAN_ADMIN_PASSWORD=$password" >> "$GITHUB_ENV"
+
       - name: Start the container in Production mode
         run: |
           docker run --detach --name aurora-web --network host \
@@ -54,6 +64,7 @@ jobs:
             -e ASPNETCORE_URLS=http://+:8080 \
             -e Security__RequireHttps=false \
             -e ConnectionStrings__AuroraDb="$AURORA_CONTAINER_CONNECTION" \
+            -e Seed__AdminPassword="$SCAN_ADMIN_PASSWORD" \
             aurora-web:nightly
 
       - name: Wait for readiness
@@ -69,6 +80,41 @@ jobs:
           docker logs --tail 200 aurora-web 2>&1 | tail -n 200
           exit 1
 
+      - name: Sign in as the scan account
+        run: |
+          jar="$(mktemp)"
+          curl --fail --silent --show-error --cookie-jar "$jar" http://localhost:8080/Account/Login > login.html
+          token="$(grep -o '<input name="__RequestVerificationToken" type="hidden" value="[^"]*"' login.html | sed 's/.*value="//; s/"$//')"
+          if [ -z "$token" ]; then
+            echo "::error::The login form has no anti-forgery token."
+            exit 1
+          fi
+          status="$(curl --silent --output /dev/null --write-out '%{http_code}' --cookie "$jar" --cookie-jar "$jar" \
+            --data-urlencode "Email=admin@aurora.local" \
+            --data-urlencode "Password=$SCAN_ADMIN_PASSWORD" \
+            --data-urlencode "RememberMe=false" \
+            --data-urlencode "ReturnUrl=/" \
+            --data-urlencode "__RequestVerificationToken=$token" \
+            http://localhost:8080/Account/Login)"
+          if [ "$status" != "302" ]; then
+            echo "::error::Sign-in returned $status instead of a redirect."
+            exit 1
+          fi
+          cookie="$(awk '$6 == "aurora.auth" { print $7 }' "$jar")"
+          if [ -z "$cookie" ]; then
+            echo "::error::Sign-in set no aurora.auth cookie."
+            exit 1
+          fi
+          echo "::add-mask::$cookie"
+          echo "AURORA_SESSION_COOKIE=$cookie" >> "$GITHUB_ENV"
+          anonymous="$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8080/Scenarios)"
+          signed_in="$(curl --silent --output /dev/null --write-out '%{http_code}' --cookie "aurora.auth=$cookie" http://localhost:8080/Scenarios)"
+          echo "Anonymous /Scenarios: $anonymous. Signed in: $signed_in."
+          if [ "$anonymous" != "302" ] || [ "$signed_in" != "200" ]; then
+            echo "::error::The session does not separate anonymous and signed-in access."
+            exit 1
+          fi
+
       - name: Soak (constant arrival rate)
         run: |
           docker run --rm --network host \
@@ -78,13 +124,25 @@ jobs:
             -e RATE=20 \
             grafana/k6:latest run /scripts/aurora-smoke.js
 
-      - name: Active security scan (OWASP ZAP full scan)
+      - name: Active security scan (OWASP ZAP full scan, signed in)
         run: |
           mkdir -p zap-report && chmod 777 zap-report
-          # The scan is bounded to 30 minutes. It runs against a disposable container with no real data.
+          # The session cookie is added to every request ZAP sends. The scan is bounded to 30 minutes.
+          # It runs against a disposable container with no real data, and it may create rows in that database.
+          zap_options="-config replacer.full_list(0).description=aurora-session -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=Cookie -config replacer.full_list(0).regex=false -config replacer.full_list(0).replacement=aurora.auth=$AURORA_SESSION_COOKIE"
           docker run --rm --network host -v "$GITHUB_WORKSPACE/zap-report:/zap/wrk:rw" \
             ghcr.io/zaproxy/zaproxy:stable \
-            zap-full-scan.py -t http://localhost:8080 -r zap-full.html -w zap-full.md -J REPORT.json -T 30 -I
+            zap-full-scan.py -t http://localhost:8080 -r zap-full.html -w zap-full.md -J REPORT.json -T 30 -I -z "$zap_options"
+
+      - name: Confirm the scan reached signed-in pages
+        run: |
+          # The sign-in check requests /Scenarios only, so a 200 for /Strategy or /Forecasting came from the scan.
+          reached="$(docker logs aurora-web 2>&1 | grep -cE 'HTTP GET /(Strategy|Forecasting) responded 200' || true)"
+          echo "Signed-in responses for /Strategy and /Forecasting: $reached"
+          if [ "$reached" -eq 0 ]; then
+            echo "::error::The active scan never received a signed-in page."
+            exit 1
+          fi
 
       - name: Publish the findings
         if: always()
