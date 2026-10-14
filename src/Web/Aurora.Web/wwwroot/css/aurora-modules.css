@@ -1,0 +1,27 @@
+/* Phase 3 module pages: navigation groups for the Enterprise and Insight menus. */
+.aurora-nav-group { position: relative; }
+.aurora-nav-group > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--aurora-text-secondary);
+  padding: var(--aurora-space-2) var(--aurora-space-3);
+  border-radius: var(--aurora-radius-sm);
+}
+.aurora-nav-group > summary::-webkit-details-marker { display: none; }
+.aurora-nav-group > summary:hover,
+.aurora-nav-group[open] > summary { color: var(--aurora-text-primary); }
+.aurora-nav-group__menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aurora-space-1);
+  padding: var(--aurora-space-2);
+  background: var(--aurora-bg-panel-raised);
+  border-radius: var(--aurora-radius-sm);
+  box-shadow: var(--aurora-shadow-panel);
+}
+.aurora-nav-group__menu a { padding: var(--aurora-space-2) var(--aurora-space-3); }

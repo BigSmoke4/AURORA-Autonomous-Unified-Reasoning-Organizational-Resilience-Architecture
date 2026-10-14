@@ -1,0 +1,98 @@
+@model Aurora.Web.Models.Modules.SupplyChainIndexViewModel
+@{ ViewData["Title"] = "Supply chain"; }
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h1>Inventory cover</h1></div>
+    <p class="aurora-note">Reorder point is average daily demand over the replenishment lead time, plus safety stock. Days of cover is on-hand stock divided by average daily demand. Zero stock with demand is a stockout.</p>
+
+    <table class="aurora-table">
+        <thead>
+            <tr><th>SKU</th><th>Location</th><th>On hand</th><th>Daily demand</th><th>Lead time (days)</th><th>Safety stock</th><th>Reorder point</th><th>Days of cover</th><th>State</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                <td>@row.Sku</td>
+                <td>@row.Location</td>
+                <td>@row.OnHandUnits</td>
+                <td>@ModuleFormatting.Number(row.AverageDailyDemand)</td>
+                <td>@row.LeadTimeDays</td>
+                <td>@row.SafetyStockUnits</td>
+                <td>@ModuleFormatting.Number(row.ReorderPointUnits)</td>
+                <td>@(row.DaysOfCover is { } cover ? ModuleFormatting.Number(cover) : ModuleFormatting.NotApplicable)</td>
+                <td><span class="aurora-status-pill aurora-status-pill--@row.Tone">@row.State</span></td>
+            </tr>
+        }
+        @if (!Model.Rows.Any())
+        {
+            <tr><td colspan="9" class="aurora-table__empty">No inventory positions are recorded yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h2>Suppliers near capacity</h2></div>
+    <p class="aurora-note">Suppliers at or above 90% capacity utilization have little room to absorb a demand spike.</p>
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Supplier</th><th>Location</th><th>Capacity utilization</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var supplier in Model.StretchedSuppliers)
+        {
+            <tr>
+                <td>@supplier.Name</td>
+                <td>@(supplier.Location ?? ModuleFormatting.NotApplicable)</td>
+                <td>@ModuleFormatting.Percent(supplier.UtilizationPct)</td>
+            </tr>
+        }
+        @if (!Model.StretchedSuppliers.Any())
+        {
+            <tr><td colspan="3" class="aurora-table__empty">No supplier is near capacity.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>
+
+@if (User.HasClaim(Aurora.Modules.Identity.Domain.AuroraClaims.Permission, Aurora.Modules.Identity.Domain.AuroraPermissions.SupplyChainManage))
+{
+    <section class="aurora-panel aurora-panel--narrow">
+        <h2>Record an inventory position</h2>
+        <form asp-controller="SupplyChain" asp-action="Create" method="post" class="aurora-form">
+            <div asp-validation-summary="ModelOnly" class="aurora-form__errors"></div>
+            <label class="aurora-form__label">
+                SKU
+                <input asp-for="Form.Sku" class="aurora-form__input" />
+                <span asp-validation-for="Form.Sku" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Location
+                <input asp-for="Form.Location" class="aurora-form__input" />
+                <span asp-validation-for="Form.Location" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                On-hand units
+                <input asp-for="Form.OnHandUnits" type="number" min="0" class="aurora-form__input" />
+                <span asp-validation-for="Form.OnHandUnits" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Average daily demand
+                <input asp-for="Form.AverageDailyDemand" type="number" step="0.0001" min="0" class="aurora-form__input" />
+                <span asp-validation-for="Form.AverageDailyDemand" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Replenishment lead time (days)
+                <input asp-for="Form.ReplenishmentLeadTimeDays" type="number" min="0" max="365" class="aurora-form__input" />
+                <span asp-validation-for="Form.ReplenishmentLeadTimeDays" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Safety stock (units)
+                <input asp-for="Form.SafetyStockUnits" type="number" min="0" class="aurora-form__input" />
+                <span asp-validation-for="Form.SafetyStockUnits" class="aurora-form__errors"></span>
+            </label>
+            <button type="submit" class="aurora-btn aurora-btn--primary">Save position</button>
+        </form>
+    </section>
+}

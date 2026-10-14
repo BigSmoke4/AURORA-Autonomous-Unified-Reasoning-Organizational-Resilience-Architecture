@@ -1,0 +1,19 @@
+{
+  "problemMatcher": [
+    {
+      "owner": "msbuild-diagnostics",
+      "severity": "error",
+      "pattern": [
+        {
+          "regexp": "^\\s*(.+?)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(\\w+):\\s+(.*?)(\\s+\\[.*\\])?$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "code": 5,
+          "message": 6
+        }
+      ]
+    }
+  ]
+}

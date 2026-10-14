@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "readings": [
+    { "metric": "Line 1 cycle time", "observedOn": "2026-10-10", "value": 14.2 },
+    { "metric": "Coolant temperature", "observedOn": "2026-10-10", "value": 21.5 },
+    { "metric": "Line 1 cycle time", "observedOn": "2026-10-11", "value": 19.8 },
+    { "metric": "Unknown metric", "observedOn": "2026-10-11", "value": 3 },
+    { "metric": "Coolant temperature", "observedOn": "2026-10-12", "value": "not a number" }
+  ]
+}

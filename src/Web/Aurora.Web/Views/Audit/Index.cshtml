@@ -1,0 +1,32 @@
+@model Aurora.Web.Models.Audit.AuditIndexViewModel
+@{ ViewData["Title"] = "Audit Trail"; }
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header">
+        <h1>Audit Trail</h1>
+    </div>
+    <p class="aurora-note">The most recent 200 entries for this organization, newest first. Entries are written in the same transaction as the action they describe.</p>
+
+    <table class="aurora-table">
+        <thead>
+            <tr><th>When (UTC)</th><th>Actor</th><th>Action</th><th>Entity</th><th>Outcome</th><th>Details</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var e in Model.Entries)
+        {
+            <tr>
+                <td>@e.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                <td>@e.ActorName</td>
+                <td>@e.Action</td>
+                <td>@e.EntityType @e.EntityId</td>
+                <td><span class="aurora-status-pill aurora-status-pill--@e.Outcome.ToString().ToLower()">@e.Outcome</span></td>
+                <td>@e.Details</td>
+            </tr>
+        }
+        @if (!Model.Entries.Any())
+        {
+            <tr><td colspan="6" class="aurora-table__empty">No audit entries yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>

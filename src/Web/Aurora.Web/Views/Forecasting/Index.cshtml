@@ -1,0 +1,31 @@
+@model Aurora.Web.Models.Forecasting.ForecastForm
+@{ ViewData["Title"] = "Forecasting"; }
+
+<section class="aurora-panel aurora-panel--narrow">
+    <h1>Forecasting</h1>
+    <p class="aurora-note">Holt linear-trend forecast of a series you supply. Smoothing constants are chosen by a fixed grid search. Accuracy is reported from a holdout of the most recent observations. Intervals are approximate.</p>
+
+    <form asp-controller="Forecasting" asp-action="Run" method="post" class="aurora-form">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="aurora-form__errors"></div>
+        <label class="aurora-form__label">
+            Observations (oldest first, separated by commas or spaces; at least 6)
+            <textarea asp-for="SeriesText" class="aurora-form__input aurora-form__input--textarea" rows="4"></textarea>
+            <span asp-validation-for="SeriesText" class="aurora-form__errors"></span>
+        </label>
+        <label class="aurora-form__label">
+            Horizon (periods ahead, 1-24)
+            <input asp-for="Horizon" type="number" min="1" max="24" class="aurora-form__input" />
+        </label>
+        <label class="aurora-form__label">
+            Confidence level
+            <select asp-for="ConfidenceLevel" class="aurora-form__input">
+                @foreach (var level in Model.ConfidenceOptions)
+                {
+                    <option value="@level">@level.ToString("P0")</option>
+                }
+            </select>
+        </label>
+        <button type="submit" class="aurora-btn aurora-btn--primary">Run forecast</button>
+    </form>
+</section>

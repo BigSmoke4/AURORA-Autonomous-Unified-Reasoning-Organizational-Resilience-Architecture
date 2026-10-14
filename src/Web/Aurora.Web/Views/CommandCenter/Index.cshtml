@@ -35,11 +35,13 @@
     <div class="aurora-metric"><span class="aurora-metric__label">Revenue Exposure</span><span class="aurora-metric__value">@Model.TotalRevenueExposure.ToString("C0")</span></div>
     <div class="aurora-metric aurora-metric--warning"><span class="aurora-metric__label">Warning Nodes</span><span class="aurora-metric__value">@Model.WarningNodeCount</span></div>
     <div class="aurora-metric aurora-metric--critical"><span class="aurora-metric__label">Critical Nodes</span><span class="aurora-metric__value">@Model.CriticalNodeCount</span></div>
-    <div class="aurora-metric aurora-metric--critical"><span class="aurora-metric__label">Single Points of Failure</span><span class="aurora-metric__value">@Model.SinglePointsOfFailureCount</span></div>
+    <div class="aurora-metric aurora-metric--critical"><span class="aurora-metric__label">Single-sourced nodes</span><span class="aurora-metric__value">@Model.SingleSourcedNodeCount</span></div>
     <div class="aurora-metric"><span class="aurora-metric__label">Suppliers</span><span class="aurora-metric__value">@Model.SupplierCount</span></div>
     <div class="aurora-metric"><span class="aurora-metric__label">Factories</span><span class="aurora-metric__value">@Model.FactoryCount</span></div>
     <div class="aurora-metric"><span class="aurora-metric__label">Products</span><span class="aurora-metric__value">@Model.ProductCount</span></div>
     <div class="aurora-metric"><span class="aurora-metric__label">Customers</span><span class="aurora-metric__value">@Model.CustomerCount</span></div>
+    <div class="aurora-metric"><span class="aurora-metric__label">Scenarios</span><span class="aurora-metric__value">@Model.ScenarioCount</span></div>
+    <div class="aurora-metric"><span class="aurora-metric__label">Pending Decisions</span><span class="aurora-metric__value">@Model.PendingDecisionCount</span></div>
 </section>
 
 @section Scripts {

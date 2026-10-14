@@ -1,0 +1,183 @@
+name: Nightly soak and active scan
+
+# Long-running checks that are too slow for every push: a 30-minute constant-rate soak, then an active OWASP ZAP scan.
+# The scan runs signed in as a bootstrap account whose password is generated for each run, so nothing is stored.
+# Both run against a fresh container built from the same commit, with a disposable PostgreSQL database.
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      soak_minutes:
+        description: "Soak duration in minutes"
+        required: false
+        default: "30"
+
+permissions:
+  contents: read
+
+jobs:
+  soak-and-active-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aurora_test
+          POSTGRES_USER: aurora
+          POSTGRES_PASSWORD: ci_only_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aurora -d aurora_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      AURORA_CONTAINER_CONNECTION: "Host=localhost;Port=5432;Database=aurora_test;Username=aurora;Password=ci_only_password"
+      SOAK_MINUTES: ${{ inputs.soak_minutes || '30' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build the web image
+        run: docker build --tag aurora-web:nightly .
+
+      - name: Create the scan account password
+        run: |
+          password="Aa1!$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          echo "SCAN_ADMIN_PASSWORD=$password" >> "$GITHUB_ENV"
+
+      - name: Start the container in Production mode
+        run: |
+          docker run --detach --name aurora-web --network host \
+            -e ASPNETCORE_ENVIRONMENT=Production \
+            -e ASPNETCORE_URLS=http://+:8080 \
+            -e Security__RequireHttps=false \
+            -e ConnectionStrings__AuroraDb="$AURORA_CONTAINER_CONNECTION" \
+            -e Seed__AdminPassword="$SCAN_ADMIN_PASSWORD" \
+            aurora-web:nightly
+
+      - name: Wait for readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://localhost:8080/health/ready > /dev/null; then
+              echo "Ready after attempt $attempt."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::The container did not become ready."
+          docker logs --tail 200 aurora-web 2>&1 | tail -n 200
+          exit 1
+
+      - name: Sign in as the scan account
+        run: |
+          jar="$(mktemp)"
+          headers="$(mktemp)"
+          curl --fail --silent --show-error --cookie-jar "$jar" http://localhost:8080/Account/Login > login.html
+          token="$(grep -o '<input name="__RequestVerificationToken" type="hidden" value="[^"]*"' login.html | sed 's/.*value="//; s/"$//')"
+          if [ -z "$token" ]; then
+            echo "::error::The login form has no anti-forgery token."
+            exit 1
+          fi
+          status="$(curl --silent --output /dev/null --dump-header "$headers" --write-out '%{http_code}' --cookie "$jar" --cookie-jar "$jar" \
+            --data-urlencode "Email=admin@aurora.local" \
+            --data-urlencode "Password=$SCAN_ADMIN_PASSWORD" \
+            --data-urlencode "RememberMe=false" \
+            --data-urlencode "ReturnUrl=/" \
+            --data-urlencode "__RequestVerificationToken=$token" \
+            http://localhost:8080/Account/Login)"
+          if [ "$status" != "302" ]; then
+            echo "::error::Sign-in returned $status instead of a redirect."
+            exit 1
+          fi
+          # A large ticket is split into chunks (aurora.auth, aurora.authC1, ...). All of them are needed.
+          pairs="$(tr -d '\r' < "$headers" | sed -nE 's/^[Ss]et-[Cc]ookie: (aurora\.auth[^=]*)=([^;]*).*/\1=\2/p')"
+          if [ -z "$pairs" ]; then
+            echo "::error::Sign-in set no aurora.auth cookie."
+            exit 1
+          fi
+          while IFS= read -r pair; do
+            echo "::add-mask::${pair#*=}"
+          done <<< "$pairs"
+          cookie="$(printf '%s\n' "$pairs" | paste -sd ';' -)"
+          echo "AURORA_SESSION_COOKIE=$cookie" >> "$GITHUB_ENV"
+          echo "Session cookies set: $(printf '%s\n' "$pairs" | cut -d= -f1 | paste -sd ' ' -)"
+          anonymous="$(curl --silent --output /dev/null --write-out '%{http_code} %{redirect_url}' http://localhost:8080/Scenarios)"
+          signed_in="$(curl --silent --output /dev/null --write-out '%{http_code} %{redirect_url}' --cookie "$cookie" http://localhost:8080/Scenarios)"
+          echo "Anonymous /Scenarios: $anonymous. Signed in: $signed_in."
+          if [ "${anonymous%% *}" != "302" ] || [ "${signed_in%% *}" != "200" ]; then
+            recent="$(docker logs aurora-web 2>&1 | grep 'responded' | tail -n 5 | tr '\n' '|')"
+            echo "::error::Anonymous /Scenarios returned $anonymous; signed-in returned $signed_in. Recent requests: $recent"
+            exit 1
+          fi
+
+      - name: Soak (constant arrival rate)
+        run: |
+          docker run --rm --network host \
+            -v "$GITHUB_WORKSPACE/tests/load:/scripts:ro" \
+            -e BASE_URL=http://localhost:8080 \
+            -e DURATION="${SOAK_MINUTES}m" \
+            -e RATE=20 \
+            grafana/k6:latest run /scripts/aurora-smoke.js
+
+      - name: Active security scan (OWASP ZAP full scan, signed in)
+        run: |
+          mkdir -p zap-report && chmod 777 zap-report
+          # The session cookie is added to every request ZAP sends. The scan is bounded to 30 minutes.
+          # It runs against a disposable container with no real data, and it may create rows in that database.
+          zap_options="-config replacer.full_list(0).description=aurora-session -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=Cookie -config replacer.full_list(0).regex=false -config replacer.full_list(0).replacement=$AURORA_SESSION_COOKIE"
+          docker run --rm --network host -v "$GITHUB_WORKSPACE/zap-report:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-full-scan.py -t http://localhost:8080 -r zap-full.html -w zap-full.md -J REPORT.json -T 30 -I -z "$zap_options"
+
+      - name: Confirm the scan reached signed-in pages
+        run: |
+          # The sign-in check requests /Scenarios only, so a 200 for /Strategy or /Forecasting came from the scan.
+          reached="$(docker logs aurora-web 2>&1 | grep -cE 'HTTP GET /(Strategy|Forecasting) responded 200' || true)"
+          echo "Signed-in responses for /Strategy and /Forecasting: $reached"
+          if [ "$reached" -eq 0 ]; then
+            echo "::error::The active scan never received a signed-in page."
+            exit 1
+          fi
+
+      - name: Publish the findings
+        if: always()
+        run: |
+          report=zap-report/REPORT.json
+          if [ ! -f "$report" ]; then
+            echo "::warning::No ZAP JSON report was produced."
+            exit 0
+          fi
+          # One annotation per alert, so the findings are readable from the check run. Risk codes: 0 info, 1 low, 2 medium, 3 high.
+          jq -r '.site[]?.alerts[]? | "\(.riskcode)\t\(.riskdesc)\t\(.name)\t\(.pluginid)\t\((.instances // []) | length)\t\(.instances[0].uri // "")\t\(.instances[0].method // "")\t\((.instances[0].evidence // "")[0:160] | gsub("\\s+"; " "))"' "$report" \
+            | while IFS=$'\t' read -r code risk name plugin count uri method evidence; do
+                level=notice
+                if [ "$code" -ge 2 ]; then level=error; elif [ "$code" -eq 1 ]; then level=warning; fi
+                echo "::${level} title=ZAP ${plugin}::${risk}: ${name} (${count} instance(s), e.g. ${method} ${uri}; evidence: ${evidence})"
+                echo "- ${risk}: ${name} (plugin ${plugin}, ${count} instance(s), e.g. ${method} ${uri}; evidence: ${evidence})" >> "$GITHUB_STEP_SUMMARY"
+              done
+          echo "Alerts listed above." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-full-report
+          path: zap-report/
+          if-no-files-found: ignore
+
+      - name: Container logs
+        if: always()
+        run: docker logs aurora-web || true
+
+      - name: Stop the container
+        if: always()
+        run: docker rm --force aurora-web || true

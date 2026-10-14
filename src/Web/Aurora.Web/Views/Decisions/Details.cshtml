@@ -1,0 +1,116 @@
+@model Aurora.Web.Models.Decisions.DecisionDetailsViewModel
+@{
+    ViewData["Title"] = Model.Decision.Title;
+    var d = Model.Decision;
+}
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header">
+        <h1>@d.Title</h1>
+        <span class="aurora-status-pill aurora-status-pill--@d.ApprovalState.ToString().ToLower()">@d.ApprovalState</span>
+    </div>
+
+    <p>@d.Recommendation</p>
+
+    <dl class="aurora-definition-list">
+        <dt>Decision score</dt><dd>@d.DecisionScore.ToString("0.00") / 100</dd>
+        <dt>Evidence confidence (proposer judgement)</dt><dd>@d.Confidence.ToString("0.00") / 100</dd>
+        <dt>Predicted revenue impact avoided</dt><dd>@d.PredictedRevenueImpact.ToString("C2")</dd>
+        <dt>Actual revenue impact</dt><dd>@(d.ActualRevenueImpact?.ToString("C2") ?? "Not recorded")</dd>
+        <dt>Prediction error</dt><dd>@(d.PredictionErrorPct.HasValue ? d.PredictionErrorPct.Value.ToString("0.00") + "%" : "Not available")</dd>
+        <dt>Execution</dt><dd><span class="aurora-status-pill aurora-status-pill--@d.ExecutionState.ToString().ToLower()">@d.ExecutionState</span></dd>
+        <dt>Model version</dt><dd>@d.ModelVersion</dd>
+        <dt>Evidence</dt><dd>@d.EvidenceSummary</dd>
+        @if (d.SourceAnalysisId is Guid sourceId)
+        {
+            <dt>Source analysis</dt><dd><a asp-controller="Analysis" asp-action="Details" asp-route-id="@sourceId">Open analysis &rarr;</a></dd>
+        }
+    </dl>
+
+    <h2>Score factors</h2>
+    <table class="aurora-table">
+        <thead><tr><th>Factor</th><th>Value (0-100)</th></tr></thead>
+        <tbody>
+        @foreach (var factor in Model.Factors)
+        {
+            <tr><td>@factor.Key</td><td>@factor.Value</td></tr>
+        }
+        </tbody>
+    </table>
+
+    <h2>Deterministic debate</h2>
+    <p class="aurora-note">An advocate and a critic check this decision's recorded figures against fixed rules. A judge counts the points on each side. No model produces any figure or verdict here.</p>
+    @if (Model.CanDebate)
+    {
+        <form asp-controller="Decisions" asp-action="Debate" asp-route-id="@d.Id" method="post" class="aurora-inline-form">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="aurora-btn aurora-btn--ghost">Run debate</button>
+        </form>
+    }
+    @if (Model.Debate is { } debate)
+    {
+        <dl class="aurora-definition-list">
+            <dt>Verdict</dt><dd>@debate.Verdict</dd>
+            <dt>Advocate points</dt><dd>@debate.AdvocatePoints</dd>
+            <dt>Critic points</dt><dd>@debate.CriticPoints</dd>
+            <dt>Run at (UTC)</dt><dd>@ModuleFormatting.Date(debate.StartedAtUtc) @debate.StartedAtUtc.ToString("HH:mm")</dd>
+            <dt>Rationale</dt><dd>@debate.VerdictRationale</dd>
+        </dl>
+        <table class="aurora-table">
+            <thead><tr><th>Role</th><th>Supports approval</th><th>Claim</th></tr></thead>
+            <tbody>
+            @foreach (var argument in Model.DebateArguments)
+            {
+                <tr>
+                    <td>@argument.Role</td>
+                    <td>@(argument.Supports ? "Yes" : "No")</td>
+                    <td>@argument.Claim</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p class="aurora-table__empty">No debate has been run on this decision.</p>
+    }
+
+    @if (Model.CanDecide)
+    {
+        <div class="aurora-action-row">
+            <form asp-controller="Decisions" asp-action="Approve" asp-route-id="@d.Id" method="post" class="aurora-inline-form">
+                <button type="submit" class="aurora-btn aurora-btn--primary">Approve</button>
+            </form>
+            <form asp-controller="Decisions" asp-action="Reject" asp-route-id="@d.Id" method="post" class="aurora-inline-form">
+                <button type="submit" class="aurora-btn aurora-btn--ghost">Reject</button>
+            </form>
+        </div>
+    }
+    else if (d.ApprovalState == Aurora.Modules.Decisions.Domain.DecisionApprovalState.PendingApproval)
+    {
+        <p class="aurora-note">You cannot approve this decision. You either proposed it or lack the Decision.Approve permission.</p>
+    }
+
+    @if (Model.CanStartExecution)
+    {
+        <form asp-controller="Decisions" asp-action="StartExecution" asp-route-id="@d.Id" method="post" class="aurora-inline-form">
+            <button type="submit" class="aurora-btn aurora-btn--primary">Mark execution started</button>
+        </form>
+    }
+
+    @if (Model.CanRecordOutcome)
+    {
+        <h2>Record the actual outcome</h2>
+        <form asp-controller="Decisions" asp-action="RecordOutcome" asp-route-id="@d.Id" method="post" class="aurora-form">
+            <label class="aurora-form__label">
+                Actual revenue impact avoided
+                <input name="ActualRevenueImpact" type="number" step="0.01" class="aurora-form__input" required />
+            </label>
+            <label class="aurora-form__label">
+                What happened
+                <textarea name="ActualOutcomeSummary" class="aurora-form__input aurora-form__input--textarea" maxlength="2000" required></textarea>
+            </label>
+            <button type="submit" class="aurora-btn aurora-btn--primary">Save outcome</button>
+        </form>
+    }
+</section>

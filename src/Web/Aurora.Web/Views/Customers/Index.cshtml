@@ -1,0 +1,34 @@
+@model Aurora.Web.Models.Modules.CustomersIndexViewModel
+@{ ViewData["Title"] = "Customers"; }
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h1>Customer concentration</h1></div>
+    <p class="aurora-note">Revenue exposure by customer from the digital twin. The Herfindahl-Hirschman index (HHI) sums the squared percentage shares on a 0 to 10,000 scale. Bands follow the conventional thresholds of 1,500 and 2,500. This is a descriptive signal, not a legal finding.</p>
+    <div class="aurora-metrics-strip">
+        <div class="aurora-metric"><span class="aurora-metric__label">Total exposure</span><span class="aurora-metric__value">@ModuleFormatting.Money(Model.TotalExposure)</span></div>
+        <div class="aurora-metric"><span class="aurora-metric__label">Largest share</span><span class="aurora-metric__value">@ModuleFormatting.Percent(Model.TopCustomerSharePct)</span></div>
+        <div class="aurora-metric"><span class="aurora-metric__label">Top three share</span><span class="aurora-metric__value">@ModuleFormatting.Percent(Model.TopThreeSharePct)</span></div>
+        <div class="aurora-metric"><span class="aurora-metric__label">HHI</span><span class="aurora-metric__value">@ModuleFormatting.Number(Model.Hhi)</span></div>
+    </div>
+    <p><span class="aurora-status-pill aurora-status-pill--@Model.Tone">@Model.Band</span></p>
+
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Customer</th><th>Revenue exposure</th><th>Share</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                <td><a asp-action="Details" asp-route-id="@row.CustomerId">@row.Name</a></td>
+                <td>@ModuleFormatting.Money(row.Exposure)</td>
+                <td>@ModuleFormatting.Percent(row.SharePct)</td>
+            </tr>
+        }
+        @if (!Model.Rows.Any())
+        {
+            <tr><td colspan="3" class="aurora-table__empty">No customers are in the digital twin yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>

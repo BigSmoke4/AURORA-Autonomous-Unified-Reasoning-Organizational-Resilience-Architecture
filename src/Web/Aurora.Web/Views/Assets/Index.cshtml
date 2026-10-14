@@ -1,0 +1,77 @@
+@model Aurora.Web.Models.Modules.AssetsIndexViewModel
+@{ ViewData["Title"] = "Assets"; }
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h1>Asset depreciation</h1></div>
+    <p class="aurora-note">Straight-line depreciation of (cost minus residual value) over the useful life, measured in elapsed days divided by 365.25. Net book value never falls below the residual value.</p>
+    <div class="aurora-metrics-strip">
+        <div class="aurora-metric"><span class="aurora-metric__label">Total cost</span><span class="aurora-metric__value">@ModuleFormatting.Money(Model.TotalCost)</span></div>
+        <div class="aurora-metric"><span class="aurora-metric__label">Total net book value</span><span class="aurora-metric__value">@ModuleFormatting.Money(Model.TotalNetBookValue)</span></div>
+    </div>
+
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Asset</th><th>Category</th><th>Cost</th><th>Accumulated</th><th>Net book value</th><th>Annual charge</th><th>Remaining life (years)</th><th>Fully depreciated</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                <td>@row.Name</td>
+                <td>@row.Category</td>
+                <td>@ModuleFormatting.Money(row.Cost)</td>
+                <td>@ModuleFormatting.Money(row.AccumulatedDepreciation)</td>
+                <td>@ModuleFormatting.Money(row.NetBookValue)</td>
+                <td>@ModuleFormatting.Money(row.AnnualCharge)</td>
+                <td>@ModuleFormatting.Number(row.RemainingLifeYears)</td>
+                <td>@(row.FullyDepreciated ? "Yes" : "No")</td>
+            </tr>
+        }
+        @if (!Model.Rows.Any())
+        {
+            <tr><td colspan="8" class="aurora-table__empty">No physical assets are registered yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>
+
+@if (User.HasClaim(Aurora.Modules.Identity.Domain.AuroraClaims.Permission, Aurora.Modules.Identity.Domain.AuroraPermissions.AssetsManage))
+{
+    <section class="aurora-panel aurora-panel--narrow">
+        <h2>Register an asset</h2>
+        <form asp-controller="Assets" asp-action="Create" method="post" class="aurora-form">
+            <div asp-validation-summary="ModelOnly" class="aurora-form__errors"></div>
+            <label class="aurora-form__label">
+                Name
+                <input asp-for="Form.Name" class="aurora-form__input" />
+                <span asp-validation-for="Form.Name" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Category
+                <input asp-for="Form.Category" class="aurora-form__input" />
+                <span asp-validation-for="Form.Category" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Acquisition cost
+                <input asp-for="Form.AcquisitionCost" type="number" step="0.01" min="0.01" class="aurora-form__input" />
+                <span asp-validation-for="Form.AcquisitionCost" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Residual value
+                <input asp-for="Form.ResidualValue" type="number" step="0.01" min="0" class="aurora-form__input" />
+                <span asp-validation-for="Form.ResidualValue" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                In service on
+                <input asp-for="Form.InServiceOn" type="date" class="aurora-form__input" />
+                <span asp-validation-for="Form.InServiceOn" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Useful life (years)
+                <input asp-for="Form.UsefulLifeYears" type="number" min="1" max="100" class="aurora-form__input" />
+                <span asp-validation-for="Form.UsefulLifeYears" class="aurora-form__errors"></span>
+            </label>
+            <button type="submit" class="aurora-btn aurora-btn--primary">Register asset</button>
+        </form>
+    </section>
+}

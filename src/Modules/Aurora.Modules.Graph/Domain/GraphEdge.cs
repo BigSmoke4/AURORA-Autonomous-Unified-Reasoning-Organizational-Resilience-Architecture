@@ -18,6 +18,11 @@ public class GraphEdge : Entity, ITenantScoped
 
     protected GraphEdge() { }
 
+    /// <summary>Rebuilds an edge from a stored snapshot. The original id is kept.</summary>
+    public static GraphEdge Restore(Guid id, Guid organizationId, Guid sourceNodeId, Guid targetNodeId,
+        GraphRelationshipType relationshipType, decimal strength, int criticality, string? metadata) =>
+        new(organizationId, sourceNodeId, targetNodeId, relationshipType, strength, criticality, metadata) { Id = id };
+
     public GraphEdge(Guid organizationId, Guid sourceNodeId, Guid targetNodeId,
         GraphRelationshipType relationshipType, decimal strength, int criticality, string? metadata = null)
     {

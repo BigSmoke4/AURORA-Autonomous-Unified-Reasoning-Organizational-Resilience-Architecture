@@ -1,0 +1,120 @@
+@model Aurora.Web.Models.Modules.MonitoringIndexViewModel
+@{
+    ViewData["Title"] = "Monitoring";
+    var canManage = User.HasClaim(Aurora.Modules.Identity.Domain.AuroraClaims.Permission, Aurora.Modules.Identity.Domain.AuroraPermissions.MonitoringManage);
+}
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h1>Metric thresholds</h1></div>
+    <p class="aurora-note">The state shown is that of the latest reading. A reading outside its thresholds raises one warning alert for the metric, and the alert resolves when a later reading returns to range.</p>
+
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Metric</th><th>Unit</th><th>Minimum</th><th>Maximum</th><th>Latest value</th><th>Recorded</th><th>State</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                <td>@row.Name</td>
+                <td>@row.Unit</td>
+                <td>@(row.Minimum is { } min ? ModuleFormatting.Number(min) : ModuleFormatting.NotApplicable)</td>
+                <td>@(row.Maximum is { } max ? ModuleFormatting.Number(max) : ModuleFormatting.NotApplicable)</td>
+                <td>@(row.LatestValue is { } value ? ModuleFormatting.Number(value) : ModuleFormatting.NotApplicable)</td>
+                <td>@(row.LatestRecordedAtUtc is { } recorded ? ModuleFormatting.Date(recorded) : ModuleFormatting.NotApplicable)</td>
+                <td><span class="aurora-status-pill aurora-status-pill--@row.Tone">@row.State</span></td>
+            </tr>
+        }
+        @if (!Model.Rows.Any())
+        {
+            <tr><td colspan="7" class="aurora-table__empty">No metrics are defined yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h2>Background jobs</h2></div>
+    <p class="aurora-note">Jobs run outside the request. A failed job is retried after a delay, up to its attempt limit. The latest 20 are listed.</p>
+    @if (canManage)
+    {
+        <form asp-controller="Monitoring" asp-action="QueueFeedIngestion" method="post" class="aurora-form">
+            <button type="submit" class="aurora-btn aurora-btn--primary">Queue fixture feed ingestion</button>
+        </form>
+    }
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Kind</th><th>Status</th><th>Attempts</th><th>Completed</th><th>Result</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var job in Model.Jobs)
+        {
+            <tr>
+                <td><code>@job.Kind</code></td>
+                <td>@job.Status</td>
+                <td>@job.Attempts</td>
+                <td>@(job.CompletedAtUtc is { } done ? ModuleFormatting.Date(done) : ModuleFormatting.NotApplicable)</td>
+                <td>@(job.Summary ?? job.LastError ?? ModuleFormatting.NotApplicable)</td>
+            </tr>
+        }
+        @if (!Model.Jobs.Any())
+        {
+            <tr><td colspan="5" class="aurora-table__empty">No background jobs have run yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>
+
+@if (canManage)
+{
+    <section class="aurora-panel aurora-panel--narrow">
+        <h2>Define a metric</h2>
+        <form asp-controller="Monitoring" asp-action="CreateMetric" method="post" class="aurora-form">
+            <div asp-validation-summary="ModelOnly" class="aurora-form__errors"></div>
+            <label class="aurora-form__label">
+                Name
+                <input asp-for="DefinitionForm.Name" class="aurora-form__input" />
+                <span asp-validation-for="DefinitionForm.Name" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Unit
+                <input asp-for="DefinitionForm.Unit" class="aurora-form__input" />
+                <span asp-validation-for="DefinitionForm.Unit" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Minimum threshold (optional)
+                <input asp-for="DefinitionForm.MinimumThreshold" type="number" step="any" class="aurora-form__input" />
+                <span asp-validation-for="DefinitionForm.MinimumThreshold" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Maximum threshold (optional)
+                <input asp-for="DefinitionForm.MaximumThreshold" type="number" step="any" class="aurora-form__input" />
+                <span asp-validation-for="DefinitionForm.MaximumThreshold" class="aurora-form__errors"></span>
+            </label>
+            <button type="submit" class="aurora-btn aurora-btn--primary">Define metric</button>
+        </form>
+
+        <h2>Record a reading</h2>
+        <form asp-controller="Monitoring" asp-action="RecordReading" method="post" class="aurora-form">
+            <div asp-validation-summary="ModelOnly" class="aurora-form__errors"></div>
+            <label class="aurora-form__label">
+                Metric
+                <select asp-for="ReadingForm.MetricDefinitionId" asp-items="Model.Metrics" class="aurora-form__input">
+                    <option value="">Select a metric</option>
+                </select>
+                <span asp-validation-for="ReadingForm.MetricDefinitionId" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Value
+                <input asp-for="ReadingForm.Value" type="number" step="any" class="aurora-form__input" />
+                <span asp-validation-for="ReadingForm.Value" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Recorded on
+                <input asp-for="ReadingForm.RecordedOn" type="date" class="aurora-form__input" />
+                <span asp-validation-for="ReadingForm.RecordedOn" class="aurora-form__errors"></span>
+            </label>
+            <button type="submit" class="aurora-btn aurora-btn--primary">Save reading</button>
+        </form>
+    </section>
+}

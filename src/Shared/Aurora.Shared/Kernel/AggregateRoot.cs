@@ -1,18 +1,22 @@
-using Aurora.Shared.Events;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Aurora.Shared.Kernel;
 
 /// <summary>
-/// An aggregate root can raise domain events. Events are collected on the entity and
-/// dispatched by the application layer (see Shared.Events.IDomainEventDispatcher) after
-/// the unit of work commits successfully — never before, so a failed transaction never
-/// leaks an event for something that didn't actually happen.
+/// Marks an entity as an aggregate root: the unit that transactions and tenant checks are applied to.
+/// An aggregate records what happened as domain events. AuroraDbContext writes them to the transactional
+/// outbox in the same SaveChanges call as the change, so an event exists if and only if its change is saved.
 /// </summary>
 public abstract class AggregateRoot : Entity
 {
-    private readonly List<IDomainEvent> _domainEvents = new();
-    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+    private readonly List<IDomainEvent> _domainEvents = [];
 
-    protected void Raise(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
+    /// <summary>Events raised since the aggregate was last saved. Not persisted as a column.</summary>
+    [NotMapped]
+    public IReadOnlyList<IDomainEvent> DomainEvents => _domainEvents;
+
+    protected void RaiseDomainEvent(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
+
+    /// <summary>Called by the persistence layer once the events have been staged for the outbox.</summary>
     public void ClearDomainEvents() => _domainEvents.Clear();
 }

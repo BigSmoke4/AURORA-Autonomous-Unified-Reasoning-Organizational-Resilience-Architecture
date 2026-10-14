@@ -12,7 +12,7 @@ public class CommandCenterViewModel
     public decimal TotalRevenueExposure { get; set; }
     public int CriticalNodeCount { get; set; }
     public int WarningNodeCount { get; set; }
-    public int SinglePointsOfFailureCount { get; set; }
-    public int ActiveScenarioCount { get; set; }
-    public int OpenDecisionCount { get; set; }
+    public int SingleSourcedNodeCount { get; set; }
+    public int ScenarioCount { get; set; }
+    public int PendingDecisionCount { get; set; }
 }

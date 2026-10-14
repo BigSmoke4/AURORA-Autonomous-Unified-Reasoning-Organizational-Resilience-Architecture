@@ -1,0 +1,33 @@
+@model Aurora.Web.Models.Decisions.DecisionQueueViewModel
+@{ ViewData["Title"] = "Decisions"; }
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header">
+        <h1>Decision Queue</h1>
+    </div>
+    <p class="aurora-note">Recommendations need a person to approve them. The person who proposed a decision cannot approve or reject it. Every change is recorded in the audit trail.</p>
+
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Decision</th><th>Score</th><th>Predicted impact</th><th>Approval</th><th>Execution</th><th>Model</th><th></th></tr>
+        </thead>
+        <tbody>
+        @foreach (var d in Model.Decisions)
+        {
+            <tr>
+                <td>@d.Title</td>
+                <td>@d.DecisionScore.ToString("0.0")</td>
+                <td>@d.PredictedRevenueImpact.ToString("C0")</td>
+                <td><span class="aurora-status-pill aurora-status-pill--@d.ApprovalState.ToString().ToLower()">@d.ApprovalState</span></td>
+                <td><span class="aurora-status-pill aurora-status-pill--@d.ExecutionState.ToString().ToLower()">@d.ExecutionState</span></td>
+                <td>@d.ModelVersion</td>
+                <td><a asp-controller="Decisions" asp-action="Details" asp-route-id="@d.Id">Open &rarr;</a></td>
+            </tr>
+        }
+        @if (!Model.Decisions.Any())
+        {
+            <tr><td colspan="7" class="aurora-table__empty">No decisions yet. Run a counterfactual in the Strategy Lab and propose it as a decision.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>

@@ -1,0 +1,213 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the older run, so CI reflects the latest commit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aurora_test
+          POSTGRES_USER: aurora
+          POSTGRES_PASSWORD: ci_only_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aurora -d aurora_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      AURORA_TEST_CONNECTION: "Host=localhost;Port=5432;Database=aurora_test;Username=aurora;Password=ci_only_password"
+      AURORA_TEST_REDIS: "localhost:6379"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore Aurora.sln
+
+      - name: Vulnerable package audit
+        run: |
+          dotnet list Aurora.sln package --vulnerable --include-transitive | tee vulnerable-packages.txt
+          if grep -q "has the following vulnerable packages" vulnerable-packages.txt; then
+            echo "::error::A referenced package has a known vulnerability. See the log above."
+            exit 1
+          fi
+
+      - name: Build
+        run: |
+          echo "::add-matcher::.github/matchers/msbuild.json"
+          dotnet build Aurora.sln --no-restore -c Release -warnaserror
+
+      - name: Verify EF Core model matches migrations
+        env:
+          ConnectionStrings__AuroraDb: ${{ env.AURORA_TEST_CONNECTION }}
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.12
+          "$HOME/.dotnet/tools/dotnet-ef" migrations has-pending-model-changes --project src/Web/Aurora.Web/Aurora.Web.csproj --startup-project src/Web/Aurora.Web/Aurora.Web.csproj
+
+      - name: Unit and integration tests
+        run: dotnet test Aurora.sln --no-build -c Release --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+
+      - name: Report test results
+        if: always()
+        run: python3 .github/scripts/report-test-results.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: TestResults/**/*.trx
+          if-no-files-found: ignore
+
+  container-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aurora_test
+          POSTGRES_USER: aurora
+          POSTGRES_PASSWORD: ci_only_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aurora -d aurora_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      AURORA_CONTAINER_CONNECTION: "Host=localhost;Port=5432;Database=aurora_test;Username=aurora;Password=ci_only_password"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build the web image
+        run: docker build --tag aurora-web:ci .
+
+      - name: Start the container in Production mode
+        run: |
+          docker run --detach --name aurora-web --network host \
+            -e ASPNETCORE_ENVIRONMENT=Production \
+            -e ASPNETCORE_URLS=http://+:8080 \
+            -e Security__RequireHttps=false \
+            -e ConnectionStrings__AuroraDb="$AURORA_CONTAINER_CONNECTION" \
+            aurora-web:ci
+
+      - name: Wait for readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://localhost:8080/health/ready > /dev/null; then
+              echo "Ready after attempt $attempt."
+              exit 0
+            fi
+            sleep 2
+          done
+          # Surface the diagnostics as annotations, so a failure is readable from the check run.
+          echo "::error::The container did not become ready."
+          echo "::error::Container state: $(docker inspect --format '{{.State.Status}} exit={{.State.ExitCode}}' aurora-web 2>&1 || true)"
+          echo "::error::Readiness response: $(curl --silent --show-error --write-out ' [HTTP %{http_code}]' http://localhost:8080/health/ready 2>&1 || true)"
+          # One annotation holds the whole log tail. Newlines are escaped so the workflow command stays on one line.
+          encoded=$(docker logs --tail 400 aurora-web 2>&1 | head -c 12000 | awk 'BEGIN{ORS="%0A"} {gsub(/%/,"%25"); gsub(/\r/,""); print}')
+          echo "::error::Container log (tail): ${encoded}"
+          exit 1
+
+      - name: Smoke checks
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error http://localhost:8080/health/live > /dev/null
+          status=$(curl --silent --output /dev/null --write-out "%{http_code}" http://localhost:8080/Account/Login)
+          test "$status" = "200"
+          headers=$(curl --silent --head http://localhost:8080/Account/Login)
+          echo "$headers" | grep -qi "^content-security-policy:.*script-src 'self'"
+          echo "$headers" | grep -qi "^x-content-type-options: nosniff"
+
+      - name: Load and soak check
+        run: |
+          docker run --rm --network host \
+            -v "$GITHUB_WORKSPACE/tests/load:/scripts:ro" \
+            -e BASE_URL=http://localhost:8080 \
+            -e DURATION=2m \
+            -e RATE=20 \
+            grafana/k6:latest run /scripts/aurora-smoke.js
+
+      - name: Passive security scan (OWASP ZAP baseline)
+        run: |
+          mkdir -p zap-report && chmod 777 zap-report
+          # Passive rules plus a short spider. Warnings are reported, and only failing rules fail the job.
+          docker run --rm --network host -v "$GITHUB_WORKSPACE/zap-report:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://localhost:8080 -r zap-baseline.html -w zap-baseline.md -J REPORT.json -I
+
+      - name: Publish the findings
+        if: always()
+        run: |
+          report=zap-report/REPORT.json
+          if [ ! -f "$report" ]; then
+            echo "::warning::No ZAP JSON report was produced."
+            exit 0
+          fi
+          # One annotation per alert, so the findings are readable from the check run. Risk codes: 0 info, 1 low, 2 medium, 3 high.
+          jq -r '.site[]?.alerts[]? | "\(.riskcode)\t\(.riskdesc)\t\(.name)\t\(.pluginid)\t\((.instances // []) | length)\t\(.instances[0].uri // "")"' "$report" \
+            | while IFS=$'\t' read -r code risk name plugin count uri; do
+                level=notice
+                if [ "$code" -ge 2 ]; then level=error; elif [ "$code" -eq 1 ]; then level=warning; fi
+                echo "::${level} title=ZAP ${plugin}::${risk}: ${name} (${count} instance(s), e.g. ${uri})"
+                echo "- ${risk}: ${name} (plugin ${plugin}, ${count} instance(s), e.g. ${uri})" >> "$GITHUB_STEP_SUMMARY"
+              done
+          echo "Alerts listed above." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: zap-report/
+          if-no-files-found: ignore
+
+      - name: Container logs
+        if: always()
+        run: docker logs aurora-web || true
+
+      - name: Stop the container
+        if: always()
+        run: docker rm --force aurora-web || true

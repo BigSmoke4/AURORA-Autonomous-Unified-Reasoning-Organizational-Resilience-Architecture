@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Aurora.Web.Data.Seed;
 
 /// <summary>
-/// Builds a realistic, intentionally-vulnerable demo enterprise (spec section 81/82) so the
+/// Builds a realistic demo enterprise with a deliberate single-source dependency (spec section 81/82) so the
 /// Command Center, Graph, Risk, and Simulation features have real data to operate on the first
 /// time AURORA starts. Idempotent: does nothing if any organization already exists.
 /// </summary>
@@ -20,12 +20,13 @@ public static class DbInitializer
         var db = scope.ServiceProvider.GetRequiredService<AuroraDbContext>();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<AuroraDbContextSeedMarker>>();
 
         await db.Database.MigrateAsync();
 
         await SeedRolesAsync(roleManager);
-        var adminUser = await SeedAdminUserAsync(userManager);
+        var adminUser = await SeedAdminUserAsync(userManager, configuration["Seed:AdminPassword"], logger);
 
         if (await db.Organizations.AnyAsync())
         {
@@ -39,7 +40,7 @@ public static class DbInitializer
         db.Organizations.Add(org);
         await db.SaveChangesAsync();
 
-        if (adminUser.OrganizationId is null)
+        if (adminUser is not null && adminUser.OrganizationId is null)
         {
             adminUser.OrganizationId = org.Id;
             await userManager.UpdateAsync(adminUser);
@@ -75,7 +76,7 @@ public static class DbInitializer
         db.Employees.AddRange(employees);
         await db.SaveChangesAsync();
 
-        // --- Suppliers (intentionally concentrated: Northbridge is a single point of failure) ---
+        // --- Suppliers (intentionally concentrated: Northbridge is the only supplier of its type for Factory Alpha) ---
         var suppliers = new List<Supplier>
         {
             new(org.Id, "Northbridge Components", "Precision Components", capacityUtilizationPct: 92, criticality: 5, annualRevenueExposure: 42_000_000m, location: "Shenzhen, CN"),
@@ -219,33 +220,65 @@ public static class DbInitializer
 
         await db.SaveChangesAsync();
 
+        await OperationalModuleSeeder.SeedAsync(db, org, factories, techAssets, TimeProvider.System.GetUtcNow().UtcDateTime);
+
         logger.LogInformation(
             "AURORA seed complete: organization {Org}, {NodeCount} graph nodes, {EdgeCount} graph edges.",
-            org.Name, nodeByEntity.Count, await db.GraphEdges.CountAsync());
+            org.Name, nodeByEntity.Count, await db.GraphEdges.IgnoreQueryFilters().CountAsync(e => e.OrganizationId == org.Id));
     }
+
+    /// <summary>
+    /// Claim type that records each default permission already applied to a role. A permission is granted from
+    /// the defaults at most once: if an administrator later removes it, it stays removed on every restart.
+    /// Roles seeded before this marker existed have no markers, so their missing defaults are granted once.
+    /// </summary>
+    private const string DefaultPermissionAppliedClaimType = "aurora:default-permission-applied";
 
     private static async Task SeedRolesAsync(RoleManager<ApplicationRole> roleManager)
     {
         foreach (var roleName in AuroraRoles.All)
         {
-            if (await roleManager.RoleExistsAsync(roleName)) continue;
-
-            var role = new ApplicationRole(roleName);
-            await roleManager.CreateAsync(role);
-
-            if (AuroraPermissions.DefaultRolePermissions.TryGetValue(roleName, out var permissions))
+            var role = await roleManager.FindByNameAsync(roleName);
+            if (role is null)
             {
-                foreach (var permission in permissions)
-                    await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim("aurora:permission", permission));
+                role = new ApplicationRole(roleName);
+                await roleManager.CreateAsync(role);
+            }
+
+            if (!AuroraPermissions.DefaultRolePermissions.TryGetValue(roleName, out var defaults)) continue;
+
+            var claims = await roleManager.GetClaimsAsync(role);
+            var granted = claims.Where(c => c.Type == AuroraClaims.Permission).Select(c => c.Value)
+                .ToHashSet(StringComparer.Ordinal);
+            var applied = claims.Where(c => c.Type == DefaultPermissionAppliedClaimType).Select(c => c.Value)
+                .ToHashSet(StringComparer.Ordinal);
+
+            foreach (var permission in defaults.Where(p => !applied.Contains(p)))
+            {
+                if (!granted.Contains(permission))
+                    await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim(AuroraClaims.Permission, permission));
+
+                await roleManager.AddClaimAsync(role, new System.Security.Claims.Claim(DefaultPermissionAppliedClaimType, permission));
             }
         }
     }
 
-    private static async Task<ApplicationUser> SeedAdminUserAsync(UserManager<ApplicationUser> userManager)
+    /// <summary>
+    /// Creates the bootstrap administrator only when a password is supplied through configuration
+    /// (Seed:AdminPassword, from user-secrets or the environment). No credential is ever hard-coded.
+    /// </summary>
+    private static async Task<ApplicationUser?> SeedAdminUserAsync(
+        UserManager<ApplicationUser> userManager, string? adminPassword, ILogger logger)
     {
         const string adminEmail = "admin@aurora.local";
         var existing = await userManager.FindByEmailAsync(adminEmail);
         if (existing is not null) return existing;
+
+        if (string.IsNullOrWhiteSpace(adminPassword))
+        {
+            logger.LogWarning("No bootstrap administrator exists and Seed:AdminPassword is not configured; skipping admin creation.");
+            return null;
+        }
 
         var admin = new ApplicationUser
         {
@@ -256,9 +289,7 @@ public static class DbInitializer
             EmailConfirmed = true
         };
 
-        // Demo-only credential. Change immediately in any non-local environment — see README
-        // "Security Notes". Never reuse this password outside a local sandbox.
-        var result = await userManager.CreateAsync(admin, "Aurora!Demo2026");
+        var result = await userManager.CreateAsync(admin, adminPassword);
         if (!result.Succeeded)
             throw new InvalidOperationException("Failed to seed admin user: " + string.Join(", ", result.Errors.Select(e => e.Description)));
 

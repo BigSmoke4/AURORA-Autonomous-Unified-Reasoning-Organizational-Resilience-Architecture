@@ -8,28 +8,51 @@
   function wireProgressBar() {
     const form = document.getElementById('run-simulation-form');
     const progress = document.getElementById('simulation-progress');
-    if (!form || !progress) return;
+    if (!form || !progress || typeof window.signalR === 'undefined') return;
 
-    let connection = null;
-    const runIdMatch = window.location.pathname.match(/scenarioId/);
+    // The run's phase messages are sent to the scenario group as soon as the POST starts. A submit
+    // therefore waits, for at most this long, for the join to finish, so no phase message is missed.
+    const JOIN_WAIT_MS = 3000;
 
-    window.addEventListener('aurora:signalr-ready', async () => {
-      connection = new signalR.HubConnectionBuilder().withUrl('/hubs/simulation').build();
-      connection.on('progress', (payload) => {
-        const bar = progress.querySelector('.aurora-progress__bar');
-        const message = progress.querySelector('.aurora-progress__message');
-        const pct = payload.totalDays > 0 ? Math.round((payload.currentDay / payload.totalDays) * 100) : 100;
-        bar.style.setProperty('--pct', pct + '%');
-        bar.querySelector('::after');
-        bar.style.setProperty('width', '100%');
-        bar.style.background = `linear-gradient(90deg, var(--aurora-accent-strong) ${pct}%, var(--aurora-bg-recessed) ${pct}%)`;
-        message.textContent = payload.message;
-      });
-      try { await connection.start(); } catch (e) { console.warn('SignalR connection failed', e); }
+    const scenarioId = form.dataset.scenarioId;
+    const message = progress.querySelector('.aurora-progress__message');
+    const bar = progress.querySelector('.aurora-progress__bar');
+    let joined = false;
+    let submitting = false;
+
+    const connection = new window.signalR.HubConnectionBuilder().withUrl('/hubs/simulation').withAutomaticReconnect().build();
+    connection.on('progress', (payload) => {
+      if (payload.scenarioId !== scenarioId) return;
+      const pct = payload.totalPhases > 0 ? Math.round((payload.completedPhases / payload.totalPhases) * 100) : 0;
+      bar.style.setProperty('--aurora-progress', pct + '%');
+      message.textContent = payload.message;
     });
 
-    form.addEventListener('submit', () => {
+    // Failure is not an error for the user: the run still starts, just without live updates.
+    const joinFinished = connection.start()
+      .then(() => connection.invoke('JoinScenario', scenarioId))
+      .then(() => { joined = true; })
+      .catch(() => {});
+    const joinOrTimeout = Promise.race([
+      joinFinished,
+      new Promise((resolve) => setTimeout(resolve, JOIN_WAIT_MS)),
+    ]);
+
+    form.addEventListener('submit', (event) => {
+      if (submitting) {
+        event.preventDefault();
+        return;
+      }
+
       progress.hidden = false;
+      bar.style.setProperty('--aurora-progress', '0%');
+      message.textContent = 'Starting...';
+
+      if (joined) return; // Joined already: let the browser post the form normally.
+
+      event.preventDefault();
+      submitting = true;
+      joinOrTimeout.then(() => form.submit());
     });
   }
 
@@ -38,7 +61,7 @@
     if (!el) return;
     const series = JSON.parse(el.dataset.series || '[]');
     if (!series.length) {
-      el.innerHTML = '<p class="aurora-note" style="padding:16px;">No simulation steps to chart yet.</p>';
+      el.innerHTML = '<p class="aurora-note aurora-note--padded">No simulation steps to chart yet.</p>';
       return;
     }
 

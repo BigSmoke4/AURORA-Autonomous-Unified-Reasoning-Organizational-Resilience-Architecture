@@ -33,3 +33,14 @@ public class GraphEdgeConfig : IEntityTypeConfiguration<GraphEdge>
         b.HasOne<GraphNode>().WithMany().HasForeignKey(x => x.TargetNodeId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+public sealed class GraphSnapshotRecordConfig : IEntityTypeConfiguration<GraphSnapshotRecord>
+{
+    public void Configure(EntityTypeBuilder<GraphSnapshotRecord> b)
+    {
+        b.ToTable("GraphSnapshotRecords");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.PayloadJson).IsRequired().HasColumnType("text");
+        b.HasIndex(x => new { x.OrganizationId, x.CapturedAtUtc });
+    }
+}

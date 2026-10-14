@@ -15,7 +15,6 @@ public class OrganizationConfig : IEntityTypeConfiguration<Organization>
         b.Property(x => x.HeadquartersLocation).HasMaxLength(300);
         b.Property(x => x.Version).IsConcurrencyToken();
         b.HasIndex(x => x.Name);
-        b.Ignore(x => x.DomainEvents);
         b.Metadata.FindNavigation(nameof(Organization.BusinessUnits))?
             .SetPropertyAccessMode(Microsoft.EntityFrameworkCore.PropertyAccessMode.Field);
     }

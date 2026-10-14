@@ -1,0 +1,54 @@
+@model Aurora.Web.Models.Modules.ReportingIndexViewModel
+@{ ViewData["Title"] = "Executive report"; }
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header">
+        <h1>Executive report</h1>
+        <a asp-controller="Reporting" asp-action="Export" class="aurora-btn aurora-btn--primary">Download CSV</a>
+    </div>
+    <p class="aurora-note">Every figure comes from the same deterministic calculator as its module page. The CSV export is audited, and it guards against spreadsheet formula injection.</p>
+
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Area</th><th>Metric</th><th>Value</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var line in Model.Lines)
+        {
+            <tr>
+                <td>@line.Area</td>
+                <td>@line.Metric</td>
+                <td>@line.Value</td>
+                <td>@line.Status</td>
+            </tr>
+        }
+        @if (!Model.Lines.Any())
+        {
+            <tr><td colspan="4" class="aurora-table__empty">No data yet. Add records in the module pages to build the report.</td></tr>
+        }
+        </tbody>
+    </table>
+
+    <h2>Export history</h2>
+    <p class="aurora-note">The most recent exports. The SHA-256 identifies the exact CSV bytes delivered.</p>
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Exported (UTC)</th><th>By</th><th>Lines</th><th>SHA-256</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var run in Model.Runs)
+        {
+            <tr>
+                <td>@ModuleFormatting.Date(run.GeneratedAtUtc)</td>
+                <td>@run.RequestedByName</td>
+                <td>@run.LineCount</td>
+                <td><code>@run.ContentSha256</code></td>
+            </tr>
+        }
+        @if (!Model.Runs.Any())
+        {
+            <tr><td colspan="4" class="aurora-table__empty">No exports yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>

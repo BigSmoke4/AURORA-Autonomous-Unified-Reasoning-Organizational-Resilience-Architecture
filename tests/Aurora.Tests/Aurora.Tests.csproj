@@ -1,14 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-    <PackageReference Include="xunit" Version="2.9.0" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Shared\Aurora.Shared\Aurora.Shared.csproj" />
@@ -16,5 +18,23 @@
     <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Scenarios\Aurora.Modules.Scenarios.csproj" />
     <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Simulation\Aurora.Modules.Simulation.csproj" />
     <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Risk\Aurora.Modules.Risk.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.AI\Aurora.Modules.AI.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Audit\Aurora.Modules.Audit.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Decisions\Aurora.Modules.Decisions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Forecasting\Aurora.Modules.Forecasting.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Optimization\Aurora.Modules.Optimization.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Workforce\Aurora.Modules.Workforce.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Finance\Aurora.Modules.Finance.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Operations\Aurora.Modules.Operations.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Technology\Aurora.Modules.Technology.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Customers\Aurora.Modules.Customers.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Markets\Aurora.Modules.Markets.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Assets\Aurora.Modules.Assets.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Contracts\Aurora.Modules.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Monitoring\Aurora.Modules.Monitoring.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Alerts\Aurora.Modules.Alerts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.Reporting\Aurora.Modules.Reporting.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Aurora.Modules.SupplyChain\Aurora.Modules.SupplyChain.csproj" />
+    <ProjectReference Include="..\..\src\Web\Aurora.Web\Aurora.Web.csproj" />
   </ItemGroup>
 </Project>

@@ -10,7 +10,6 @@ namespace Aurora.Modules.Graph.Application;
 public sealed class GraphSnapshot
 {
     public Guid OrganizationId { get; }
-    public DateTime BuiltAtUtc { get; } = DateTime.UtcNow;
 
     private readonly Dictionary<Guid, GraphNode> _nodes;
     private readonly List<GraphEdge> _edges;

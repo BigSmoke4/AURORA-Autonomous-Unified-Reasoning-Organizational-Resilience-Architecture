@@ -9,8 +9,8 @@ public sealed class ScenarioRepository : IScenarioRepository
     private readonly AuroraDbContext _db;
     public ScenarioRepository(AuroraDbContext db) => _db = db;
 
-    public Task<Scenario?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
-        _db.Scenarios.FirstOrDefaultAsync(s => s.Id == id, ct);
+    public Task<Scenario?> GetByIdAsync(Guid organizationId, Guid id, CancellationToken ct = default) =>
+        _db.Scenarios.FirstOrDefaultAsync(s => s.OrganizationId == organizationId && s.Id == id, ct);
 
     public async Task<IReadOnlyList<Scenario>> GetByOrganizationAsync(Guid organizationId, CancellationToken ct = default) =>
         await _db.Scenarios.AsNoTracking().Where(s => s.OrganizationId == organizationId)

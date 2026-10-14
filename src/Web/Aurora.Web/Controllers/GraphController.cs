@@ -1,4 +1,5 @@
 using Aurora.Modules.Graph.Application;
+using Aurora.Modules.Identity.Domain;
 using Aurora.Web.Models;
 using Aurora.Web.Models.Graph;
 using Microsoft.AspNetCore.Authorization;
@@ -12,7 +13,7 @@ namespace Aurora.Web.Controllers;
 /// Every action here builds one GraphSnapshot per request and runs pure in-memory algorithms
 /// against it — no additional database round trips once the snapshot is projected.
 /// </summary>
-[Authorize(Policy = "Graph.Read")]
+[Authorize(Policy = AuroraPermissions.GraphRead)]
 [Route("api/graph")]
 [ApiController]
 public class GraphController : ControllerBase
@@ -82,16 +83,16 @@ public class GraphController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("single-points-of-failure")]
-    public async Task<IActionResult> SinglePointsOfFailure(CancellationToken ct)
+    [HttpGet("single-sourced-nodes")]
+    public async Task<IActionResult> SingleSourcedNodes(CancellationToken ct)
     {
         var org = await _orgAccessor.GetCurrentAsync(ct);
         if (org is null) return NotFound();
 
         var snapshot = await _graphProjection.BuildLiveGraphAsync(org.Id, ct);
-        var spofs = _traversal.DetectSinglePointsOfFailure(snapshot);
+        var singleSourced = _traversal.DetectSingleSourcedNodes(snapshot);
 
-        var result = spofs.Select(id => new
+        var result = singleSourced.Select(id => new
         {
             nodeId = id,
             name = snapshot.Find(id)?.DisplayName,

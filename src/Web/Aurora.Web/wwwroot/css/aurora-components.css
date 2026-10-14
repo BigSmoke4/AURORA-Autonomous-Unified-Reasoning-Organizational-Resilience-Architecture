@@ -75,7 +75,7 @@
 .aurora-progress { margin-top: var(--aurora-space-4); }
 .aurora-progress__bar { height: 6px; border-radius: 3px; background: var(--aurora-bg-recessed); overflow: hidden; position: relative; }
 .aurora-progress__bar::after {
-  content: ''; position: absolute; inset: 0; width: 0%; background: var(--aurora-accent-strong);
+  content: ''; position: absolute; inset: 0; width: var(--aurora-progress, 0%); background: var(--aurora-accent-strong);
   transition: width 0.3s ease;
 }
 .aurora-progress__message { font-size: 12px; color: var(--aurora-text-secondary); }

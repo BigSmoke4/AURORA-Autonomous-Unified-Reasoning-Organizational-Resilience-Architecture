@@ -1,0 +1,109 @@
+@model Aurora.Web.Models.Modules.TechnologyIndexViewModel
+@using Aurora.Modules.Technology.Application
+@{
+    ViewData["Title"] = "Technology";
+    var canManage = User.HasClaim(Aurora.Modules.Identity.Domain.AuroraClaims.Permission, Aurora.Modules.Identity.Domain.AuroraPermissions.TechnologyManage);
+}
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h1>Patch compliance</h1></div>
+    <p class="aurora-note">Each asset is measured against its patch window. An asset is overdue once the days since its last patch exceed the window. Assets without a policy are flagged. A policy with a software product is exposed to each imported advisory for that product that was published after its last patch. An advisory is overdue once the window has passed since its publication.</p>
+    @if (canManage)
+    {
+        <form asp-controller="Technology" asp-action="QueueVulnerabilityImport" method="post" class="aurora-inline-form">
+            <button type="submit" class="aurora-btn">Import vulnerability advisories</button>
+        </form>
+    }
+
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Asset</th><th>Type</th><th>Criticality</th><th>Last patched</th><th>Window (days)</th><th>Days since patch</th><th>Days over window</th><th>Due</th><th>Status</th><th>Software product</th><th>Advisories exposed</th>@if (canManage) { <th>Record patch</th> }</tr>
+        </thead>
+        <tbody>
+        @foreach (var row in Model.Rows)
+        {
+            <tr>
+                <td>@row.Asset</td>
+                <td>@row.AssetType</td>
+                <td>@row.Criticality</td>
+                <td>@(row.LastPatchedUtc is { } patched ? ModuleFormatting.Date(patched) : ModuleFormatting.NotApplicable)</td>
+                <td>@(row.PatchSlaDays?.ToString() ?? ModuleFormatting.NotApplicable)</td>
+                <td>@(row.DaysSincePatch?.ToString() ?? ModuleFormatting.NotApplicable)</td>
+                <td>@(row.DaysOverSla?.ToString() ?? ModuleFormatting.NotApplicable)</td>
+                <td>@(row.DueOnUtc is { } due ? ModuleFormatting.Date(due) : ModuleFormatting.NotApplicable)</td>
+                <td><span class="aurora-status-pill aurora-status-pill--@row.Tone">@row.Status</span></td>
+                <td>@(row.SoftwareProduct ?? ModuleFormatting.NotApplicable)</td>
+                <td>
+                    @if (row.SoftwareProduct is null)
+                    {
+                        @ModuleFormatting.NotApplicable
+                    }
+                    else
+                    {
+                        @row.ExposedAdvisories
+                        @if (row.HighestCvss is { } cvss)
+                        {
+                            <span> (highest @cvss, @PatchExposureCalculator.SeverityOf(cvss))</span>
+                        }
+                        @if (row.OverdueAdvisories is > 0)
+                        {
+                            <span class="aurora-status-pill aurora-status-pill--critical">@row.OverdueAdvisories overdue</span>
+                        }
+                    }
+                </td>
+                @if (canManage)
+                {
+                    <td>
+                        @if (row.PolicyId is { } policyId)
+                        {
+                            <form asp-controller="Technology" asp-action="RecordPatch" method="post" class="aurora-inline-form">
+                                <input type="hidden" name="PatchPolicyId" value="@policyId" />
+                                <input type="date" name="PatchedOn" required class="aurora-form__input" />
+                                <button type="submit" class="aurora-btn">Record</button>
+                            </form>
+                        }
+                    </td>
+                }
+            </tr>
+        }
+        @if (!Model.Rows.Any())
+        {
+            <tr><td colspan="@(canManage ? 12 : 11)" class="aurora-table__empty">No technology assets are defined yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>
+
+@if (User.HasClaim(Aurora.Modules.Identity.Domain.AuroraClaims.Permission, Aurora.Modules.Identity.Domain.AuroraPermissions.TechnologyManage))
+{
+    <section class="aurora-panel aurora-panel--narrow">
+        <h2>Set a patch policy</h2>
+        <form asp-controller="Technology" asp-action="Create" method="post" class="aurora-form">
+            <div asp-validation-summary="ModelOnly" class="aurora-form__errors"></div>
+            <label class="aurora-form__label">
+                Asset
+                <select asp-for="Form.TechnologyAssetId" asp-items="Model.Assets" class="aurora-form__input">
+                    <option value="">Select an asset</option>
+                </select>
+                <span asp-validation-for="Form.TechnologyAssetId" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Last patched on
+                <input asp-for="Form.LastPatchedOn" type="date" class="aurora-form__input" />
+                <span asp-validation-for="Form.LastPatchedOn" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Patch window (days)
+                <input asp-for="Form.PatchSlaDays" type="number" min="1" max="365" class="aurora-form__input" />
+                <span asp-validation-for="Form.PatchSlaDays" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Software product (optional)
+                <input asp-for="Form.SoftwareProduct" type="text" maxlength="200" class="aurora-form__input" />
+                <span asp-validation-for="Form.SoftwareProduct" class="aurora-form__errors"></span>
+            </label>
+            <button type="submit" class="aurora-btn aurora-btn--primary">Save policy</button>
+        </form>
+
+</section>
+}

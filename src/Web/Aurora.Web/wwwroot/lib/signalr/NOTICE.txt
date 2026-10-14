@@ -1,0 +1,5 @@
+signalr.min.js is the ASP.NET Core SignalR browser client, package @microsoft/signalr 10.0.11
+(https://www.npmjs.com/package/@microsoft/signalr), distributed under the MIT License,
+Copyright (c) .NET Foundation and Contributors. It is vendored so that the Content Security Policy
+(script-src 'self') allows it without a third-party CDN. Update it by replacing the file with the
+same package version from npm.

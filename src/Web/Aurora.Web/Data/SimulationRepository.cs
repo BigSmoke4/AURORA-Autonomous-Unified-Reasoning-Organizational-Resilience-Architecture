@@ -17,8 +17,8 @@ public sealed class SimulationRepository : ISimulationRepository
     public async Task AddResultAsync(SimulationResult result, CancellationToken ct = default) =>
         await _db.SimulationResults.AddAsync(result, ct);
 
-    public Task<SimulationRun?> GetRunAsync(Guid id, CancellationToken ct = default) =>
-        _db.SimulationRuns.FirstOrDefaultAsync(r => r.Id == id, ct);
+    public Task<SimulationRun?> GetRunAsync(Guid organizationId, Guid id, CancellationToken ct = default) =>
+        _db.SimulationRuns.FirstOrDefaultAsync(r => r.OrganizationId == organizationId && r.Id == id, ct);
 
     public Task<SimulationResult?> GetResultAsync(Guid simulationRunId, CancellationToken ct = default) =>
         _db.SimulationResults.FirstOrDefaultAsync(r => r.SimulationRunId == simulationRunId, ct);

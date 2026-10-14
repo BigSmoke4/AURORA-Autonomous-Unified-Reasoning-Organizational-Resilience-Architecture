@@ -38,13 +38,4 @@ public class Supplier : Entity, ITenantScoped
         AnnualRevenueExposure = annualRevenueExposure;
         Location = location;
     }
-
-    public void ApplyCapacityShock(decimal reductionPct)
-    {
-        CapacityUtilizationPct = Math.Clamp(CapacityUtilizationPct - reductionPct, 0, 100);
-        Status = CapacityUtilizationPct < 40 ? OperationalStatus.Critical
-            : CapacityUtilizationPct < 70 ? OperationalStatus.Warning
-            : OperationalStatus.Healthy;
-        Touch();
-    }
 }

@@ -5,7 +5,7 @@ Accepted
 
 ## Context
 The neural graph visualization and graph intelligence queries (shortest path, downstream impact,
-SPOF detection) need to run many small traversal steps. Issuing a SQL query per hop would be slow
+single-sourced node screening) need to run many small traversal steps. Issuing a SQL query per hop would be slow
 and would not scale to an interactive UI.
 
 ## Decision
@@ -15,6 +15,11 @@ by node id). Every traversal algorithm in `GraphTraversalService` operates purel
 in-memory structure — no further database round trips.
 
 ## Consequences
+- The single-sourced node screen (`DetectSingleSourcedNodes`) is a vertex minimum-cut computation
+  (`MinimumSupplyCut`). For each dependent and each supplier type it finds the smallest set of nodes
+  whose failure disconnects the dependent, using Edmonds-Karp max-flow on a vertex-split network. Routes
+  through intermediate nodes count, so redundancy is not over-reported. The result is deterministic and
+  involves no model.
 - One database round trip regardless of how many algorithms run against the snapshot in a single
   request (e.g. the AI investigation orchestrator runs four different graph algorithms off one
   snapshot).

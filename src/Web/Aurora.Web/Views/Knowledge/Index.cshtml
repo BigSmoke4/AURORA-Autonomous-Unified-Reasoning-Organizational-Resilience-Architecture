@@ -1,0 +1,93 @@
+@model Aurora.Web.Models.Knowledge.KnowledgeIndexViewModel
+@{
+    ViewData["Title"] = "Knowledge";
+    var canManage = User.HasClaim(Aurora.Modules.Identity.Domain.AuroraClaims.Permission, Aurora.Modules.Identity.Domain.AuroraPermissions.KnowledgeManage);
+}
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h1>Search documents</h1></div>
+    <p class="aurora-note">Passages are ranked by BM25 relevance. Each result names its document and position, so every excerpt can be checked against its source. Results are never summarised or generated.</p>
+    <form asp-controller="Knowledge" asp-action="Index" method="get" class="aurora-form">
+        <div asp-validation-summary="ModelOnly" class="aurora-form__errors"></div>
+        <label class="aurora-form__label">
+            Search terms
+            <input name="q" value="@Model.Query" maxlength="@Aurora.Web.Controllers.KnowledgeController.MaxQueryLength" class="aurora-form__input" />
+        </label>
+        <button type="submit" class="aurora-btn aurora-btn--primary">Search</button>
+    </form>
+
+    @if (Model.SearchPerformed)
+    {
+        <table class="aurora-table">
+            <thead>
+                <tr><th>Document</th><th>Passage</th><th>Relevance</th><th>Excerpt</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var hit in Model.Hits)
+            {
+                <tr>
+                    <td>@hit.DocumentTitle</td>
+                    <td>@(hit.Ordinal + 1)</td>
+                    <td>@hit.Score.ToString("0.0000")</td>
+                    <td>@hit.Snippet</td>
+                </tr>
+            }
+            @if (!Model.Hits.Any())
+            {
+                <tr><td colspan="4" class="aurora-table__empty">No indexed passage matches these terms.</td></tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>
+
+@if (canManage)
+{
+    <section class="aurora-panel aurora-panel--narrow">
+        <h2>Index a document</h2>
+        <form asp-controller="Knowledge" asp-action="Upload" method="post" class="aurora-form">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="aurora-form__errors"></div>
+            <label class="aurora-form__label">
+                Title
+                <input asp-for="Form.Title" class="aurora-form__input" />
+                <span asp-validation-for="Form.Title" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Source (for example, the owning team or file)
+                <input asp-for="Form.SourceName" class="aurora-form__input" />
+                <span asp-validation-for="Form.SourceName" class="aurora-form__errors"></span>
+            </label>
+            <label class="aurora-form__label">
+                Text
+                <textarea asp-for="Form.Body" class="aurora-form__input aurora-form__input--textarea" rows="10"></textarea>
+                <span asp-validation-for="Form.Body" class="aurora-form__errors"></span>
+            </label>
+            <button type="submit" class="aurora-btn aurora-btn--primary">Index document</button>
+        </form>
+    </section>
+}
+
+<section class="aurora-panel">
+    <div class="aurora-panel-header"><h2>Indexed documents</h2></div>
+    <table class="aurora-table">
+        <thead>
+            <tr><th>Title</th><th>Source</th><th>Passages</th><th>Indexed (UTC)</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var document in Model.Documents)
+        {
+            <tr>
+                <td>@document.Title</td>
+                <td>@document.SourceName</td>
+                <td>@document.ChunkCount</td>
+                <td>@ModuleFormatting.Date(document.CreatedAtUtc)</td>
+            </tr>
+        }
+        @if (!Model.Documents.Any())
+        {
+            <tr><td colspan="4" class="aurora-table__empty">No documents have been indexed yet.</td></tr>
+        }
+        </tbody>
+    </table>
+</section>

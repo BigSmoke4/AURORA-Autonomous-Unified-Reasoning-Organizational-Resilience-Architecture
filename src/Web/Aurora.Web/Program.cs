@@ -1,30 +1,50 @@
-using System.Security.Claims;
+using FluentValidation;
+using Microsoft.Extensions.Options;
 using Aurora.Modules.AI.Application;
 using Aurora.Modules.AI.Contracts;
 using Aurora.Modules.AI.Infrastructure;
+using Aurora.Modules.Analysis.Contracts;
+using Aurora.Modules.Audit.Application;
+using Aurora.Modules.Audit.Contracts;
+using Aurora.Modules.Decisions.Contracts;
+using Aurora.Shared.Kernel;
 using Aurora.Modules.DigitalTwin.Contracts;
+using Aurora.Modules.Decisions.Domain;
 using Aurora.Modules.Graph.Application;
 using Aurora.Modules.Graph.Contracts;
 using Aurora.Modules.Identity.Domain;
 using Aurora.Modules.Organizations.Application;
 using Aurora.Modules.Risk.Domain;
-using Aurora.Modules.Decisions.Domain;
 using Aurora.Modules.Scenarios.Application;
 using Aurora.Modules.Scenarios.Contracts;
 using Aurora.Modules.Simulation.Application;
 using Aurora.Modules.Simulation.Contracts;
-using Aurora.Shared.Events;
+using Aurora.Shared.Observability;
 using Aurora.Web.Data;
 using Aurora.Web.Data.Seed;
 using Aurora.Web.Hubs;
+using Aurora.Web.Infrastructure.Events;
+using Aurora.Web.Integration.Feeds;
+using Aurora.Web.Infrastructure;
+using System.Globalization;
+using System.Net;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+var isDevelopment = builder.Environment.IsDevelopment();
 
-// ---------- Structured logging (spec section: structured logging / observability) ----------
+// ---------- Structured logging (spec section 39/68) ----------
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
@@ -32,23 +52,33 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 builder.Host.UseSerilog();
 
-// ---------- Strongly typed options (spec section 92 — no scattered config strings) ----------
-var riskWeights = builder.Configuration.GetSection("Risk:ScoringWeights").Get<RiskScoringWeights>() ?? new RiskScoringWeights();
-var decisionWeights = builder.Configuration.GetSection("Decisions:ScoringWeights").Get<DecisionScoringWeights>() ?? new DecisionScoringWeights();
-builder.Services.AddSingleton(riskWeights);
-builder.Services.AddSingleton(decisionWeights);
+// ---------- Strongly typed options (spec section 92) ----------
+builder.Services.AddSingleton(builder.Configuration.GetSection("Risk:ScoringWeights").Get<RiskScoringWeights>() ?? new RiskScoringWeights());
+builder.Services.AddSingleton(builder.Configuration.GetSection("Decisions:ScoringWeights").Get<DecisionScoringWeights>() ?? new DecisionScoringWeights());
 
 // ---------- PostgreSQL / EF Core ----------
-var connectionString = builder.Configuration.GetConnectionString("AuroraDb")
-    ?? throw new InvalidOperationException("Connection string 'AuroraDb' is not configured.");
-builder.Services.AddDbContext<AuroraDbContext>(options => options.UseNpgsql(connectionString));
+// The connection string carries the database password, so it is never committed: set it with
+// user-secrets (development) or the ConnectionStrings__AuroraDb environment variable (containers).
+var connectionString = builder.Configuration.GetConnectionString("AuroraDb");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "ConnectionStrings:AuroraDb is not configured. Set it with 'dotnet user-secrets' or the ConnectionStrings__AuroraDb environment variable.");
+}
+
+builder.Services.AddDbContext<AuroraDbContext>(options => options.UseNpgsql(
+    connectionString,
+    npgsql => npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null)));
 
 // ---------- ASP.NET Core Identity ----------
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
-    options.Password.RequiredLength = 10;
+    options.Password.RequiredLength = 12;
     options.Password.RequireNonAlphanumeric = true;
     options.Password.RequireUppercase = true;
+    options.Password.RequireDigit = true;
+    options.Password.RequiredUniqueChars = 4;
+    options.Lockout.AllowedForNewUsers = true;
     options.Lockout.MaxFailedAccessAttempts = 5;
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     options.SignIn.RequireConfirmedEmail = false;
@@ -58,10 +88,12 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
+    options.Cookie.Name = "aurora.auth";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = isDevelopment ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
-    options.SlidingExpiration = true;
+    options.SlidingExpiration = false;
     options.LoginPath = "/Account/Login";
     options.AccessDeniedPath = "/Account/AccessDenied";
 });
@@ -69,27 +101,76 @@ builder.Services.ConfigureApplicationCookie(options =>
 // ---------- Authorization policies from permission claims (spec section 43) ----------
 builder.Services.AddAuthorization(options =>
 {
-    foreach (var permission in new[]
-    {
-        AuroraPermissions.GraphRead, AuroraPermissions.GraphWrite, AuroraPermissions.ScenarioRead,
-        AuroraPermissions.ScenarioCreate, AuroraPermissions.ScenarioRun, AuroraPermissions.SimulationRead,
-        AuroraPermissions.SimulationRun, AuroraPermissions.OptimizationRun, AuroraPermissions.AiInvestigate,
-        AuroraPermissions.AiApprove, AuroraPermissions.DecisionRead, AuroraPermissions.DecisionApprove,
-        AuroraPermissions.DecisionExecute, AuroraPermissions.ReportsRead
-    })
+    foreach (var permission in AuroraPermissions.All)
     {
         options.AddPolicy(permission, policy =>
             policy.RequireAssertion(ctx =>
-                ctx.User.HasClaim(c => c.Type == "aurora:permission" && c.Value == permission) ||
+                ctx.User.HasClaim(c => c.Type == AuroraClaims.Permission && c.Value == permission) ||
                 ctx.User.IsInRole(AuroraRoles.SystemAdministrator)));
     }
 });
 
-// ---------- MVC + Razor ----------
+// ---------- Rate limiting (spec section 44) ----------
+builder.Services.AddRateLimiter(RateLimitPolicies.Configure);
+
+// ---------- MVC + Razor + SignalR ----------
 builder.Services.AddControllersWithViews();
+
+// ---------- Validation (FluentValidation, explicit per action; see Validation/FormValidationExtensions.cs) ----------
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
+// Data Protection keys outlive the process when a key directory is configured, so sessions and
+// anti-forgery tokens survive restarts. The application name keeps keys from different apps apart.
+var dataProtectionKeyDirectory = builder.Configuration["DataProtection:KeyDirectory"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeyDirectory))
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyDirectory))
+        .SetApplicationName("Aurora");
+}
 builder.Services.AddSignalR();
+
+// ---------- Domain events: transactional outbox, dispatched in the background ----------
+builder.Services.Configure<OutboxOptions>(builder.Configuration.GetSection(OutboxOptions.SectionName));
+builder.Services.AddScoped<IDomainEventHandler, DomainEventLogHandler>();
+builder.Services.AddScoped<IDomainEventHandler, OrganizationNotificationHandler>();
+builder.Services.AddHostedService<OutboxDispatcher>();
+builder.Services.Configure<Aurora.Web.Infrastructure.Jobs.BackgroundJobOptions>(builder.Configuration.GetSection(Aurora.Web.Infrastructure.Jobs.BackgroundJobOptions.SectionName));
+builder.Services.AddScoped<Aurora.Web.Infrastructure.Jobs.BackgroundJobQueue>();
+builder.Services.AddScoped<Aurora.Web.Infrastructure.Jobs.IBackgroundJobHandler, Aurora.Web.Integration.Feeds.MetricFeedJobHandler>();
+builder.Services.AddScoped<Aurora.Web.Integration.Feeds.MetricFeedIngestor>();
+builder.Services.AddScoped<Aurora.Web.Integration.Feeds.VulnerabilityFeedIngestor>();
+builder.Services.AddScoped<Aurora.Web.Infrastructure.Jobs.IBackgroundJobHandler, Aurora.Web.Integration.Feeds.VulnerabilityFeedJobHandler>();
+builder.Services.AddSingleton<Aurora.Web.Integration.Feeds.FeedSourceCatalog>();
+
+// Live feed adapters are registered only when used, but their settings are validated at startup, so a feed that is
+// misconfigured stops the host from starting rather than failing on the first job.
+builder.Services.AddOptions<ExternalFeedOptions>()
+    .Bind(builder.Configuration.GetSection(ExternalFeedOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<ExternalFeedOptions>, ExternalFeedOptionsValidator>();
+var startupFeeds = builder.Configuration.GetSection(ExternalFeedOptions.SectionName).Get<ExternalFeedOptions>() ?? new ExternalFeedOptions();
+// Each feed has exactly one adapter: the live one when its endpoint is configured, otherwise the bundled fixture.
+ConfigureFeedSource<HttpMetricFeedAdapter, FixtureMetricFeedAdapter>(builder.Services, startupFeeds.Metrics);
+ConfigureFeedSource<HttpVulnerabilityFeedAdapter, FixtureVulnerabilityFeedAdapter>(builder.Services, startupFeeds.Vulnerabilities);
+builder.Services.AddScoped<Aurora.Web.Services.GraphSnapshotStore>();
+builder.Services.AddScoped<Aurora.Web.Services.MetricReadingRecorder>();
+builder.Services.AddScoped<Aurora.Web.Services.DecisionDebateService>();
+builder.Services.AddHostedService<Aurora.Web.Infrastructure.Jobs.BackgroundJobDispatcher>();
+
+// Decimal values (scores, percentages, forecast levels) are rendered and bound with invariant
+// culture, so form round-trips never depend on the host's locale.
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    options.DefaultRequestCulture = new RequestCulture(CultureInfo.InvariantCulture);
+    options.SupportedCultures = [CultureInfo.InvariantCulture];
+    options.SupportedUICultures = [CultureInfo.InvariantCulture];
+});
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<Aurora.Web.Models.CurrentOrganizationAccessor>();
+builder.Services.AddScoped<ITenantContext, Aurora.Web.Models.RequestTenantContext>();
+builder.Services.AddScoped<Aurora.Web.Models.JobTenantScope>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authentication.IClaimsTransformation, Aurora.Web.Models.AuroraClaimsTransformation>();
 
 // ---------- Module contracts -> Web infrastructure implementations ----------
@@ -108,43 +189,175 @@ builder.Services.AddScoped<IDigitalTwinReadService, DigitalTwinReadService>();
 builder.Services.AddScoped<IOrganizationDirectory, OrganizationDirectory>();
 
 builder.Services.AddScoped<IAiInvestigationRepository, AiInvestigationRepository>();
-builder.Services.AddSingleton<IAiProvider, NullAiProvider>(); // swap for a real LLM-backed IAiProvider once AI:ApiKey is configured
+builder.Services.AddOptions<AiOptions>()
+    .Bind(builder.Configuration.GetSection(AiOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<AiOptions>, Aurora.Web.Infrastructure.Ai.AiOptionsValidator>();
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<AiOptions>>().Value);
 builder.Services.AddScoped<InvestigationOrchestrator>();
 
-builder.Services.AddSingleton<IDomainEventDispatcher, DomainEventDispatcher>();
+// The LLM is optional. When AI:Provider is configured, narratives come from an OpenAI-compatible
+// endpoint with timeouts and retries; otherwise the deterministic narrative is used (spec section 71).
+var aiTimeout = TimeSpan.FromSeconds(builder.Configuration.GetSection(AiOptions.SectionName).Get<AiOptions>()?.TimeoutSeconds ?? new AiOptions().TimeoutSeconds);
+const int AiTotalTimeoutMultiplier = 2;
+const int AiCircuitSamplingMultiplier = 3;
+builder.Services.AddHttpClient<OpenAiCompatibleAiProvider>((sp, client) =>
+    {
+        var options = sp.GetRequiredService<AiOptions>();
+        if (options.IsLlmProviderConfigured)
+        {
+            client.BaseAddress = new Uri(options.Endpoint!.TrimEnd('/') + "/");
+        }
+    })
+    .AddStandardResilienceHandler(options =>
+    {
+        // The resilience library refuses to start unless the circuit breaker samples over at least twice the
+        // attempt timeout. Each attempt is bounded, and all attempts together are bounded by the total budget.
+        options.AttemptTimeout.Timeout = aiTimeout;
+        options.TotalRequestTimeout.Timeout = aiTimeout * AiTotalTimeoutMultiplier;
+        options.CircuitBreaker.SamplingDuration = aiTimeout * AiCircuitSamplingMultiplier;
+    });
+// Narratives are cached by the evidence they were generated from. Redis holds the cache when a connection string is
+// configured, and a process-local cache is used otherwise (see CachingAiProvider).
+var redisConnection = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrWhiteSpace(redisConnection))
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnection;
+        options.InstanceName = SharedCacheInstanceName;
+    });
+}
+else
+{
+    builder.Services.AddDistributedMemoryCache();
+}
+
+builder.Services.AddScoped<IAiProvider>(sp =>
+{
+    var ai = sp.GetRequiredService<AiOptions>();
+    if (!ai.IsLlmProviderConfigured) return new NullAiProvider();
+
+    return new Aurora.Web.Infrastructure.Ai.CachingAiProvider(
+        sp.GetRequiredService<OpenAiCompatibleAiProvider>(),
+        sp.GetRequiredService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>(),
+        TimeSpan.FromMinutes(ai.CacheMinutes),
+        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Aurora.Web.Infrastructure.Ai.CachingAiProvider>>());
+});
+
+// ---------- Phase 2 modules: audit, analysis records, decisions, deterministic analysis engines ----------
+builder.Services.AddScoped<IAuditRepository, AuditRepository>();
+builder.Services.AddScoped<AuditRecorder>();
+builder.Services.AddScoped<Aurora.Web.Data.ExecutiveReportBuilder>();
+builder.Services.AddScoped<IAnalysisRecordRepository, AnalysisRecordRepository>();
+builder.Services.AddScoped<IDecisionRepository, DecisionRepository>();
+builder.Services.AddSingleton<CounterfactualAnalyzer>();
+
 
 // ---------- Health checks (spec section 69) ----------
 builder.Services.AddHealthChecks()
-    .AddNpgSql(connectionString, name: "postgresql");
+    .AddCheck<DatabaseHealthCheck>("postgresql", tags: new[] { "ready" })
+    .AddCheck<AiProviderHealthCheck>("ai-provider", tags: new[] { "ready" });
 
 // ---------- OpenTelemetry (spec section 68) ----------
 builder.Services.AddOpenTelemetry()
-    .WithTracing(tracing => tracing
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddConsoleExporter());
+    .ConfigureResource(resource => resource.AddService("Aurora.Web"))
+    .WithTracing(tracing =>
+    {
+        tracing.AddSource(AuroraTelemetry.SourceName)
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation();
+        if (isDevelopment) tracing.AddConsoleExporter();
+    })
+    .WithMetrics(metrics =>
+    {
+        metrics.AddMeter(AuroraTelemetry.MeterName)
+            .AddAspNetCoreInstrumentation();
+        if (isDevelopment) metrics.AddConsoleExporter();
+    });
+
+// Forwarded headers are trusted only from the proxies listed in Security:TrustedProxies (plus loopback). Without this,
+// every client behind a reverse proxy would share the proxy's address, and the sign-in rate limit would apply to all of them.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    foreach (var proxy in builder.Configuration.GetSection("Security:TrustedProxies").Get<string[]>() ?? [])
+    {
+        if (IPAddress.TryParse(proxy, out var address)) options.KnownProxies.Add(address);
+    }
+});
 
 var app = builder.Build();
+
+// HTTPS redirection and HSTS assume TLS terminates in front of, or inside, this process. The local
+// Docker Compose stack serves plain HTTP on localhost and turns this off; any shared deployment keeps it on.
+var requireHttps = builder.Configuration.GetValue("Security:RequireHttps", true);
 
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+    if (requireHttps) app.UseHsts();
+}
+else
+{
+    app.UseDeveloperExceptionPage();
 }
 
-app.UseHttpsRedirection();
+app.UseForwardedHeaders();
+app.UseSerilogRequestLogging();
+if (requireHttps) app.UseHttpsRedirection();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseStaticFiles();
+app.UseRequestLocalization();
 app.UseRouting();
-
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(name: "default", pattern: "{controller=CommandCenter}/{action=Index}/{id?}");
 app.MapHub<SimulationHub>("/hubs/simulation");
+app.MapHub<OrganizationHub>("/hubs/organization");
+
+// Liveness only proves the process is up; readiness also proves PostgreSQL is reachable (spec section 69).
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.MapHealthChecks("/health");
-app.MapHealthChecks("/health/live");
-app.MapHealthChecks("/health/ready");
 
 await DbInitializer.SeedAsync(app.Services);
 
 app.Run();
+
+/// <summary>
+/// Registers the adapter for one feed. When the endpoint is configured, the live adapter is registered as a typed HTTP
+/// client with a bounded timeout per attempt, a bounded total budget, and retries and a circuit breaker for throttling
+/// (HTTP 429) and server errors. Otherwise the fixture adapter is registered, so a feed always has exactly one source.
+/// </summary>
+static void ConfigureFeedSource<TLive, TFixture>(IServiceCollection services, FeedEndpointOptions endpoint)
+    where TLive : class, IExternalFeedAdapter
+    where TFixture : class, IExternalFeedAdapter
+{
+    const int TotalTimeoutMultiplier = 2;
+    const int CircuitSamplingMultiplier = 3;
+
+    if (!endpoint.IsConfigured)
+    {
+        services.AddScoped<IExternalFeedAdapter, TFixture>();
+        return;
+    }
+
+    services.AddHttpClient<TLive>(client => client.BaseAddress = new Uri(endpoint.BaseUrl!.TrimEnd('/') + "/"))
+        .AddStandardResilienceHandler(options =>
+        {
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(endpoint.TimeoutSeconds);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(endpoint.TimeoutSeconds * TotalTimeoutMultiplier);
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(endpoint.TimeoutSeconds * CircuitSamplingMultiplier);
+        });
+    services.AddScoped<IExternalFeedAdapter>(sp => sp.GetRequiredService<TLive>());
+}
+
+/// <summary>Exposed so integration tests can host the application with WebApplicationFactory.</summary>
+public partial class Program
+{
+    /// <summary>Prefix for every key this application writes to a shared cache, so several apps can share one Redis.</summary>
+    public const string SharedCacheInstanceName = "aurora:";
+}
