@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Aurora.Modules.Identity.Domain;
 using Aurora.Tests.Persistence;
 using Aurora.Web.Data;
+using Aurora.Web.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -30,6 +31,9 @@ public sealed class SecurityRegressionHttpTests
     private const string ContentSecurityPolicyHeader = "Content-Security-Policy";
     private const string ContentTypeOptionsHeader = "X-Content-Type-Options";
     private const string NoSniff = "nosniff";
+    private const string CrossOriginOpenerPolicyHeader = "Cross-Origin-Opener-Policy";
+    private const string CrossOriginResourcePolicyHeader = "Cross-Origin-Resource-Policy";
+    private const string CrossOriginEmbedderPolicyHeader = "Cross-Origin-Embedder-Policy";
     private const string BaseAddress = "https://localhost";
     private const string UnknownEmail = "nobody-registered@example.com";
     private const int FailedAttemptsBeforeLockout = 5;
@@ -77,6 +81,19 @@ public sealed class SecurityRegressionHttpTests
         Assert.Equal(NoSniff, string.Join(',', response.Headers.GetValues(ContentTypeOptionsHeader)));
         Assert.DoesNotContain(StackTraceMarker, body, StringComparison.Ordinal);
         Assert.DoesNotContain(ExceptionMarker, body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Pages_AreCrossOriginIsolated()
+    {
+        using var host = CreateHost();
+        using var client = CreateClient(host);
+
+        var response = await client.GetAsync(LoginPath);
+
+        Assert.Equal(SecurityHeadersMiddleware.CrossOriginOpenerPolicy, string.Join(',', response.Headers.GetValues(CrossOriginOpenerPolicyHeader)));
+        Assert.Equal(SecurityHeadersMiddleware.CrossOriginResourcePolicy, string.Join(',', response.Headers.GetValues(CrossOriginResourcePolicyHeader)));
+        Assert.Equal(SecurityHeadersMiddleware.CrossOriginEmbedderPolicy, string.Join(',', response.Headers.GetValues(CrossOriginEmbedderPolicyHeader)));
     }
 
     [Fact]
